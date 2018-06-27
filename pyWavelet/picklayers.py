@@ -32,15 +32,24 @@ def picklayers(data,null_2_space,delta_fast_time_range, n_snow, ref_snow_layer =
 
 def cwt(data, wavelet, scales, precision = 10):
     out_coefs = np.zeros((np.size(scales), data.size))
-    for i in np.arange(np.size(scales)):
-        int_psi, x = pywt.integrate_wavelet(wavelet, precision=precision)
-        step = x[1] - x[0]
-        j = np.floor(
-            np.arange(scales[i] * (x[-1] - x[0]) + 1) / (scales[i] * step))
-        if np.max(j) >= np.size(int_psi):
-            j = np.delete(j, np.where((j >= np.size(int_psi)))[0])
-        coef = - np.sqrt(scales[i]) * np.diff(
-            np.convolve(data, int_psi[j.astype(np.int)][::-1]))
-        d = (coef.size - data.size) / 2.
-        out_coefs[i, :] = coef[int(np.floor(d)):int(-np.ceil(d))]
+    int_psi, x = pywt.integrate_wavelet(wavelet, precision=precision)
+    step = x[1] - x[0]
+    x_step = (x[-1] - x[0]) + 1
+    
+    j_a = [np.arange(scale * x_step)/(scale*step) for scale in scales]
+    j_m = [np.delete(j, np.where((j >= np.size(int_psi)))[0]) for j in j_a if np.max(j) >= np.size(int_psi)]
+    coef_a = [-np.sqrt(scales[i]) *np.diff(np.convolve(data, int_psi[x.astype(np.int)][::-1])) for (i,x) in enumerate(j_m)]
+    d_a = [(coef.size-data.size)/2 for coef in coef_a]
+    out_coefs = np.asarray([coef[int(np.floor((coef.size-data.size)/2 )):int(-np.ceil((coef.size-data.size)/2 ))] for coef in coef_a])
+    
+    # Old slower method
+    #for i in np.arange(np.size(scales)):
+    #    j = np.floor(
+    #        np.arange(scales[i] * (x[-1] - x[0]) + 1) / (scales[i] * step))
+    #    if np.max(j) >= np.size(int_psi):
+    #        j = np.delete(j, np.where((j >= np.size(int_psi)))[0])
+    #    coef = - np.sqrt(scales[i]) * np.diff(
+    #        np.convolve(data, int_psi[j.astype(np.int)][::-1]))
+    #    d = (coef.size - data.size) / 2.
+    #    out_coefs[i, :] = coef[int(np.floor(d)):int(-np.ceil(d))]
     return out_coefs
