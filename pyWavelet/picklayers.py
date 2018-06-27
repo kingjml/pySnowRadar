@@ -16,6 +16,12 @@ def picklayers(data,null_2_space,delta_fast_time_range, n_snow, ref_snow_layer =
     lin_coefs = cwt(data, pywt.Wavelet('haar'),lin_scale_vect)
     log_coefs = cwt(10*np.log10(data), pywt.Wavelet('haar'),log_scale_vect)
     
+    lin_coefs[:, 0:np.ceil(max_scale_lin/2).astype(int)] = 0
+    lin_coefs[:, -np.ceil(max_scale_lin/2).astype(int)] = 0
+    
+    log_coefs[:, 0:np.ceil(max_scale_log/2).astype(int)] = 0
+    log_coefs[:, -np.ceil(max_scale_log/2).astype(int)] = 0
+    
     sum_log_coefs = np.sum(log_coefs,axis=0)/log_coefs.shape[0]
     sum_lin_coefs = np.sum(lin_coefs,axis=0)/lin_coefs.shape[0]
     
