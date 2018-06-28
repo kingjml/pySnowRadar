@@ -37,10 +37,14 @@ def cwt(data, wavelet, scales, precision = 10):
     x_step = (x[-1] - x[0]) + 1
     
     j_a = [np.arange(scale * x_step)/(scale*step) for scale in scales]
-    j_m = [np.delete(j, np.where((j >= np.size(int_psi)))[0]) for j in j_a if np.max(j) >= np.size(int_psi)]
-    coef_a = [-np.sqrt(scales[i]) *np.diff(np.convolve(data, int_psi[x.astype(np.int)][::-1])) for (i,x) in enumerate(j_m)]
+    j_m = [np.delete(j, np.where((j >= np.size(int_psi)))[0]) 
+           for j in j_a if np.max(j) >= np.size(int_psi)]
+    coef_a = [-np.sqrt(scales[i]) 
+              *np.diff(np.convolve(data, int_psi[x.astype(np.int)][::-1])) 
+              for (i,x) in enumerate(j_m)]
     d_a = [(coef.size-data.size)/2 for coef in coef_a]
-    out_coefs = np.asarray([coef[int(np.floor((coef.size-data.size)/2 )):int(-np.ceil((coef.size-data.size)/2 ))] for coef in coef_a])
+    out_coefs = np.asarray([coef[int(np.floor((coef.size-data.size)/2 ))
+                                 :int(-np.ceil((coef.size-data.size)/2 ))] for coef in coef_a])
     
     # Old slower method
     #for i in np.arange(np.size(scales)):
