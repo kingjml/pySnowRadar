@@ -9,6 +9,19 @@ def gpsptoutc(gps_time):
     '''
     This is for the 'packed' style of time that comes from the ATM product
     '''
+    #Srem = rem(gpsTimeHHMMSS,1e3)
+    #MS = MSrem
+
+    #SSrem = rem(gpsTimeHHMMSS,1e5)
+    #SS = (SSrem - MSrem)/1e3
+
+    #MMrem= rem(gpsTimeHHMMSS,1e7)
+    #MM = (MMrem - SSrem)/1e5
+
+    #HHrem = rem(gpsTimeHHMMSS,1e9)
+    #HH = (HHrem - MMrem)/1e7
+    #utcTime = ((HH*3600) + (MM*60) + SS +(MS/1000) - gpsAheadUtc)';
+    
     
     
 def _leapsec(gps_time):
