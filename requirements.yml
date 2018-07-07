@@ -1,4 +1,4 @@
-name: py3-test
+name: py3-pyWavelet
 channels:
   - defaults
 dependencies:
