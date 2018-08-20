@@ -1,45 +1,45 @@
+import h5py
 import matfunc
 import timefunc
 import numpy as np
 from scipy import signal
+from shapely.geometry import box
 
 _c = 299792458
-_leap_epoc = 19 #Leap seconds at GPS epoch
+_qc_pitch_max = 5 #Max ATM pitch in def
+_qc_roll_max = 5 #Max ATM roll in deg
 
 #TODO overload the class so it can except botht the .mat and NC snow radar files
-class snowradar:
-    def __init__(self, file_path, l_case = 'meta'):
-        radar_dat =  matfunc.loadmat(file_path)
-        self.gps_time = radar_dat['GPS_time']
-        self.utc_time = timefunc.utcleap(radar_dat['GPS_time'])
-        self.bandwidth = np.abs((radar_dat['param_records']['radar']['wfs']['f1']-
-                          radar_dat['param_records']['radar']['wfs']['f0'])*
-                          radar_dat['param_records']['radar']['wfs']['fmult'])
-        self.dft = radar_dat['Time'][1] - radar_dat['Time'][0]  #delta fast time
-        self.dfr = (self.dft/2)*_c #detla fast time range
+class SnowRadar:
+    def __init__(self, file_path,l_case):
+        
+        self.file_path = file_path
+        self.file_name = file_path.split('\\')[-1]
         self.load_type = l_case
         
         self.air_snow = None
         self.snow_ice = None
         self.epw = None #equiv_pulse_width 
-        self.n2n = None #Null to Null space
+        self.n2n = None #Null to Null space        
         
-        self.extent = np.hstack((radar_dat['Longitude'].min(),
-                                 radar_dat['Latitude'].min(),
-                                 radar_dat['Longitude'].max(),
-                                 radar_dat['Latitude'].max())).ravel()
-                                 
-        if (l_case=='full'):
-            self.data = radar_dat['Data']
-            self.ft = radar_dat['Time']
-            self.lat = radar_dat['Latitude']
-            self.lon  = radar_dat['Latitude']
+        #self.qc_pitch = np.any(radar_dat['Pitch']>_qc_pitch_max)
+        #self.qc_roll = np.any(radar_dat['Roll']>_qc_roll_max)
         
-    def calcpulsewidth(self, window = 'hann', oversample_num = 1000, num_nyquist_ts = 100):
+    
+    def as_dict(self):
+        if (self.load_type=='meta'):
+            return {'fname': self.file_name, 
+                    'fpath': self.file_path, 
+                    'tstart':self.time_utc[0],
+                    'tend':self.time_utc[-1], 
+                    'poly': self.poly}
+        
+    def calcpulsewidth(self, oversample_num = 1000, num_nyquist_ts = 100):
         '''
         bandwidth: radar bandwidth in hz
         win: window function to be applied to the freq domain
         os_num: the amount to oversample the nyquist by
+        
         '''
         # Time Vector
         nyquist_sf = 2*self.bandwidth
@@ -55,11 +55,13 @@ class snowradar:
         n_band_points = np.sum(np.abs(f)<=half_bandwidth)
     
         # Create spectral window 
-        # TODO: allow other windows i.e. rect
+        # TODO: Check CRESIS windowing, add options if necessary
         spectral_win = signal.hann(n_band_points)
     
         # Frequency domain processing
-        freq_domain_signal = np.zeros(len(f))
+        #JK: Need to be careful here, f becomes an array if bandwidth is as well.
+        # Change it to use f.shape?
+        freq_domain_signal = np.zeros(len(f)) 
         freq_domain_signal[np.abs(f)<half_bandwidth] = spectral_win
         shift_freq_domain_signal = np.fft.ifftshift(freq_domain_signal)
         time_domain_signal = np.fft.ifft(shift_freq_domain_signal)*n_FFT
@@ -83,3 +85,56 @@ class snowradar:
         null_2_width = 2*np.mean(closest_peaks[0:1])
         null_2_time = null_2_width*time_step
         self.n2n = null_2_time*_c
+
+#The OIB snow radar (2-8 GHz) data comes as matlab v5
+#We use a bit of hacky magic to fit it into numpy arrays from dicts
+class OIB(SnowRadar):
+    def __init__(self, file_path, l_case = 'meta'):
+        radar_dat =  matfunc.loadmat(file_path)
+        self.bandwidth = np.abs((radar_dat['param_records']['radar']['wfs']['f1']-
+                          radar_dat['param_records']['radar']['wfs']['f0'])*
+                          radar_dat['param_records']['radar']['wfs']['fmult'])
+        self.dft = radar_dat['Time'][1] - radar_dat['Time'][0]  #delta fast time
+        self.dfr = (self.dft/2)*_c #detla fast time range
+        self.time_gps = radar_dat['GPS_time'][[0,-1]]
+        self.time_utc = timefunc.utcleap(self.time_gps)
+        self.file_epoch = timefunc.utcleap(radar_dat['GPS_time'])[0]
+        
+        self.extent = np.hstack((radar_dat['Longitude'].min(),
+                                 radar_dat['Latitude'].min(),
+                                 radar_dat['Longitude'].max(),
+                                 radar_dat['Latitude'].max())).ravel()      
+        self.poly = box(self.extent[0], self.extent[1], self.extent[2], self.extent[3])
+                                 
+        if (l_case=='full'):
+            self.time_gps = radar_dat['GPS_time']
+            self.time_utc = timefunc.utcleap(radar_dat['GPS_time'])
+            self.data_radar = radar_dat['Data']
+            self.time_fast = radar_dat['Time']
+            self.lat = radar_dat['Latitude']
+            self.lon  = radar_dat['Longitude']
+
+#The AWI snow radar data comes as matlab v7 so its closer to a HDF file
+#Use h5py to read and process it
+class AWI(SnowRadar):
+    def __init__(self, file_path, l_case = 'meta'):
+        super().__init__(file_path,  l_case)
+        radar_dat = h5py.File(file_path)
+        
+        #Not sure why but there are two records for f0 and f1. The first one is only a 2Ghz range?
+        f0 = radar_dat[list(radar_dat['param_records']['radar']['wfs']['f0'])[1][0]].value
+        f1 = radar_dat[list(radar_dat['param_records']['radar']['wfs']['f1'])[1][0]].value
+        fmult = radar_dat[list(radar_dat['param_records']['radar']['wfs']['fmult'])[1][0]].value
+        self.bandwidth = np.float64(np.abs((f1-f0)*fmult)) #TODO: The scalar cast is a hack
+        
+        self.dft = radar_dat['Time'].value[0][1] - radar_dat['Time'].value[0][0]  #delta fast time
+        self.dfr = (self.dft/2)*_c #detla fast time range
+        #self.time_gps = radar_dat['GPS_time'][[0,-1]]
+        
+        if (l_case=='full'):
+            self.data_radar = radar_dat['Data'].value
+            self.time_fast = radar_dat['Time'].value
+            self.lat = radar_dat['Latitude'].value
+            self.lon  = radar_dat['Longitude'].value
+            #self.time_gps = radar_dat['GPS_time']
+            #TODO self.time_utc = timefunc.utcleap(radar_dat['GPS_time'])
