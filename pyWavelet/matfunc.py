@@ -14,25 +14,25 @@ def loadmat(filename):
     data = spio.loadmat(filename, struct_as_record=False, squeeze_me=True)
     return _check_keys(data)
 
-def _check_keys(dict):
+def _check_keys(in_dict):
     '''
     checks if entries in dictionary are mat-objects. If yes
     todict is called to change them to nested dictionaries
     '''
-    for key in dict:
-        if isinstance(dict[key], spio.matlab.mio5_params.mat_struct):
-            dict[key] = _todict(dict[key])
-    return dict        
+    for key in in_dict:
+        if isinstance(in_dict[key], spio.matlab.mio5_params.mat_struct):
+            in_dict[key] = _todict(in_dict[key])
+    return in_dict        
 
 def _todict(matobj):
     '''
-    A recursive function which constructs from matobjects nested dictionaries
+    A recursive function which constructs nested dictionaries from matobjects 
     '''
-    dict = {}
+    out_dict = {}
     for strg in matobj._fieldnames:
         elem = matobj.__dict__[strg]
         if isinstance(elem, spio.matlab.mio5_params.mat_struct):
-            dict[strg] = _todict(elem)
+            out_dict[strg] = _todict(elem)
         else:
-            dict[strg] = elem
-    return dict
+            out_dict[strg] = elem
+    return out_dict
