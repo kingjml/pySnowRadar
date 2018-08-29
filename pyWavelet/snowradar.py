@@ -116,6 +116,8 @@ class OIB(SnowRadar):
             self.time_fast = radar_dat['Time']
             self.lat = radar_dat['Latitude']
             self.lon = radar_dat['Longitude']
+            self.elevation = radar_dat['Elevation']
+
 
     def __str__(self):
         return f'OIB Datafile: {self.file_name}'   
@@ -142,6 +144,9 @@ class AWI(SnowRadar):
             self.time_fast = radar_dat['Time'].value
             self.lat = radar_dat['Latitude'].value
             self.lon  = radar_dat['Longitude'].value
+            self.elevation = radar_dat['Elevation'].value
+            self.surface = radar_dat['Surface'].value
+
             #self.time_gps = radar_dat['GPS_time']
             #TODO self.time_utc = timefunc.utcleap(radar_dat['GPS_time'])
     
