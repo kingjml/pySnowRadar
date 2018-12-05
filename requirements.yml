@@ -1,0 +1,11 @@
+name: py3-pyWavelet
+channels:
+  - defaults
+dependencies:
+  - descartes
+  - geopandas
+  - h5py
+  - jupyter
+  - python=3
+  - pywavelets
+  - scipy
