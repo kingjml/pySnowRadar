@@ -4,7 +4,7 @@ with open('README.md', 'r') as readme:
     long_description = readme.read()
 
 setup(
-    name='pyWavelet-TBC',
+    name='pyWavelet',
     version='0.0.1',
     author='Climate Research Division',
     author_email='',
@@ -19,5 +19,5 @@ setup(
         'Operating System :: OS Independent',
     ],
     setup_requires=['pytest-runner', ],
-    tests_requires=['pytest', ],
+    tests_requires=['pytest', 'coverage', ],
 )

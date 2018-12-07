@@ -13,5 +13,6 @@ _LEAP_DATES = ((1981, 6, 30), (1982, 6, 30), (1983, 6, 30),
 LEAP_DATES = tuple(datetime(*i, 23, 59, 59) for i in _LEAP_DATES)
 
 def utcleap(gps_sec):
+    '''converts gps time to utc time, accounting for leap years(?)'''
     epoch_date = datetime.utcfromtimestamp(gps_sec[0])
-    return gps_sec - bisect(LEAP_DATES, epoch_date)
+    return gps_sec[0] - bisect(LEAP_DATES, epoch_date)

@@ -1,1 +1,1 @@
-name = 'pyWavelet-TBC'
+name = 'pyWavelet'

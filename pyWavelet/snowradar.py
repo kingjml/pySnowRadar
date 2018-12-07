@@ -1,7 +1,7 @@
 import os
 import h5py
-import matfunc
-import timefunc
+from . import matfunc
+from . import timefunc
 import numpy as np
 from scipy import signal
 from shapely.geometry import box
@@ -101,7 +101,7 @@ class OIB(SnowRadar):
         self.dfr = (self.dft / 2) * C #delta fast time range
         self.time_gps = radar_dat['GPS_time'][[0, -1]]
         self.time_utc = timefunc.utcleap(self.time_gps)
-        self.file_epoch = timefunc.utcleap(radar_dat['GPS_time'])[0]
+        self.file_epoch = timefunc.utcleap(radar_dat['GPS_time'])
         
         self.extent = np.hstack((radar_dat['Longitude'].min(),
                                  radar_dat['Latitude'].min(),
