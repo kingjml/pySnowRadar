@@ -27,3 +27,16 @@ def awi_meta():
 
 def test_awi_full_thing(oib_full):
     assert type(str(awi_full)) == str
+
+def test_snowradar_as_dict(oib_full, oib_meta):
+    print(oib_meta.time_gps)
+    assert oib_full.as_dict() == None
+    '''
+    assert oib_meta.as_dict() == {
+        'fname': oib_meta.file_name,
+        'fpath': oib_meta.file_path,
+        'tstart': oib_meta.time_utc[0],
+        'tend': oib_meta.time_utc[-1],
+        'poly': oib_meta.poly
+    }
+    '''
