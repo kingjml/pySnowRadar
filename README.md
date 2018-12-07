@@ -42,12 +42,12 @@ cd /path/to/pywavelet/project/root/dir
 ### Running tests
 
 ```
-pytest
+pytest 
 ```
 
 ### Generating test coverage report
-
+These two commands run the tests and generate a coverage report for any untested files where the `Missing` columns indicates line numbers that still require testing
 ```
-coverage run --source pyWavelet -m pytest
+coverage run -m pytest
 coverage report
 ```
