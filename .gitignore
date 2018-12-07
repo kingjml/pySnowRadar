@@ -156,6 +156,13 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# Visual Studio Code
+.vscode
+*.code-workspace
+
+# custom
 *.h5
-pyWavelet/data/eureka/atm/ILATM1B_20160419_125622.ATM5AT2.h5.xml
+*.h5.xml
 *.mat
+
