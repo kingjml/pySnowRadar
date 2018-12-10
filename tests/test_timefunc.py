@@ -7,4 +7,4 @@ def test_utcleap_invalid():
 
 def test_utcleap_valid():
     true_time = 1092121230.0
-    assert utcleap([1092121243.0]) == true_time
+    assert utcleap(1092121243.0) == true_time

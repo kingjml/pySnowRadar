@@ -27,7 +27,8 @@ class SnowRadar:
         #self.qc_roll = np.any(radar_dat['Roll'] > QC_ROLL_MAX)
         
     # MB: this method breaks on any objects of the SnowRadar superclass 
-    # due to the superclass not having self.time_utc or self.poly    
+    # due to the superclass not having self.time_utc or self.poly
+    ''' 
     def as_dict(self):
         if (self.load_type=='meta'):
             return {'fname': self.file_name, 
@@ -35,7 +36,15 @@ class SnowRadar:
                     'tstart': self.time_utc[0],
                     'tend': self.time_utc[-1], 
                     'poly': self.poly}
-        
+    '''
+    def as_dict(self):
+        '''generic method, to be extended by OIB and AWI subclasses'''
+        return {
+            'fname': self.file_name,
+            'fpath': self.file_path,
+            'l_case': self.load_type
+        }
+
     def calcpulsewidth(self, oversample_num=1000, num_nyquist_ts=100):
         '''
         bandwidth: radar bandwidth in hz
@@ -88,6 +97,7 @@ class SnowRadar:
         null_2_time = null_2_width * time_step
         self.n2n = null_2_time * C
 
+
 #The OIB snow radar (2-8 GHz) data comes as matlab v5
 #We use a bit of hacky magic to fit it into numpy arrays from dicts
 class OIB(SnowRadar):
@@ -99,17 +109,14 @@ class OIB(SnowRadar):
                           radar_dat['param_records']['radar']['wfs']['fmult'])
         self.dft = radar_dat['Time'][1] - radar_dat['Time'][0]  #delta fast time
         self.dfr = (self.dft / 2) * C #delta fast time range
-        self.time_gps = radar_dat['GPS_time'][[0, -1]]
-        self.time_utc = timefunc.utcleap(self.time_gps)
-        self.file_epoch = timefunc.utcleap(radar_dat['GPS_time'])
-        
-        self.extent = np.hstack((radar_dat['Longitude'].min(),
-                                 radar_dat['Latitude'].min(),
-                                 radar_dat['Longitude'].max(),
-                                 radar_dat['Latitude'].max())).ravel()      
-        self.poly = box(*self.extent)
-                                 
-        if (l_case == 'full'):
+        if l_case == 'meta':
+            self.time_gps = radar_dat['GPS_time'][[0, -1]]
+            time_start, time_end = self.time_gps
+            self.time_utc = (
+                timefunc.utcleap(time_start),
+                timefunc.utcleap(time_end)
+            )
+        elif l_case == 'full':
             self.time_gps = radar_dat['GPS_time']
             self.time_utc = timefunc.utcleap(radar_dat['GPS_time'])
             self.data_radar = radar_dat['Data']
@@ -118,9 +125,28 @@ class OIB(SnowRadar):
             self.lon = radar_dat['Longitude']
             self.elevation = radar_dat['Elevation']
 
+        gps_times = radar_dat['GPS_time']
+        utc_times = [timefunc.utcleap(gps) for gps in gps_times]
+        self.file_epoch = utc_times
+        self.extent = np.hstack((radar_dat['Longitude'].min(),
+                                 radar_dat['Latitude'].min(),
+                                 radar_dat['Longitude'].max(),
+                                 radar_dat['Latitude'].max())).ravel()      
+        self.poly = box(*self.extent)
+
+    def as_dict(self):
+        '''extend superclass as_dict method to include more OIB-relevant information'''
+        result = super().as_dict()
+        result.update({
+            'tstart': self.time_utc[0],
+            'tend': self.time_utc[1],
+            'poly': self.poly
+        })
+        return result
 
     def __str__(self):
         return f'OIB Datafile: {self.file_name}'   
+
 
 #The AWI snow radar data comes as matlab v7 so its closer to a HDF file
 #Use h5py to read and process it
@@ -149,6 +175,16 @@ class AWI(SnowRadar):
 
             #self.time_gps = radar_dat['GPS_time']
             #TODO self.time_utc = timefunc.utcleap(radar_dat['GPS_time'])
-    
+
+    def as_dict(self):
+        '''extend superclass as_dict method to include more AWI-relevant information'''
+        result = super().as_dict()
+        result.update({
+            'tstart': self.time_utc[0],
+            'tend': self.time_utc[1],
+            'poly': self.poly
+        })
+        return result
+
     def __str__(self):
         return f'AWI Datafile: {self.file_name}'
