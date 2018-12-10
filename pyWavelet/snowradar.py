@@ -6,7 +6,7 @@ import numpy as np
 from scipy import signal
 from shapely.geometry import box
 
-C = 299792458
+C = 299792458 #Vacuum speed of light
 QC_PITCH_MAX = 5 #Max ATM pitch in def
 QC_ROLL_MAX = 5 #Max ATM roll in deg
 
