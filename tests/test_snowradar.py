@@ -63,16 +63,16 @@ def test_awi_as_dict(awi_full, awi_meta):
         'fname': AWI_TEST_FILE.name,
         'fpath': str(AWI_TEST_FILE.absolute()),
         'l_case': 'full',
-        'tstart': 1491867198.6980438,
-        'tend': 1491867294.850502,
+        'tstart': 1491867198.6980438, # utc time
+        'tend': 1491867294.850502, # utc time
         'poly': 'POLYGON ((-156.4123497738317 71.33410559555396, -156.4123497738317 71.3672588206452, -156.503229401445 71.3672588206452, -156.503229401445 71.33410559555396, -156.4123497738317 71.33410559555396))'
     }
     expected_meta = {
         'fname': AWI_TEST_FILE.name,
         'fpath': str(AWI_TEST_FILE.absolute()),
         'l_case': 'meta',
-        'tstart': 1491867198.6980438,
-        'tend': 1491867294.850502,
+        'tstart': 1491867198.6980438, # utc time
+        'tend': 1491867294.850502, # utc time
         'poly': 'POLYGON ((-156.4123497738317 71.33410559555396, -156.4123497738317 71.3672588206452, -156.503229401445 71.3672588206452, -156.503229401445 71.33410559555396, -156.4123497738317 71.33410559555396))'
     }
     assert awi_full.as_dict() == expected_full
@@ -84,16 +84,16 @@ def test_oib_as_dict(oib_full, oib_meta):
         'fname': OIB_TEST_FILE.name,
         'fpath': str(OIB_TEST_FILE.absolute()),
         'l_case': 'full',
-        'tstart': 1461071183.9615262,
-        'tend': 1461071225.002684,
+        'tstart': 1461071183.9615262, # utc time
+        'tend': 1461071225.002684, # utc time
         'poly': 'POLYGON ((-86.76076421204809 80.22643933420355, -86.76076421204809 80.2711290662714, -86.76363201954442 80.2711290662714, -86.76363201954442 80.22643933420355, -86.76076421204809 80.22643933420355))'
     } 
     expected_meta = {
         'fname': OIB_TEST_FILE.name,
         'fpath': str(OIB_TEST_FILE.absolute()),
         'l_case': 'meta',
-        'tstart': 1461071183.9615262,
-        'tend': 1461071225.002684,
+        'tstart': 1461071183.9615262, # utc time
+        'tend': 1461071225.002684, # utc time
         'poly': 'POLYGON ((-86.76076421204809 80.22643933420355, -86.76076421204809 80.2711290662714, -86.76363201954442 80.2711290662714, -86.76363201954442 80.22643933420355, -86.76076421204809 80.22643933420355))'
     }  
     assert oib_full.as_dict() == expected_full
@@ -106,5 +106,19 @@ def test_calcpulsewidth_result(awi_full, awi_meta, oib_full, oib_meta):
     '''
     awi_full.calcpulsewidth()
     awi_meta.calcpulsewidth()
+    # expected AWI values based on Data_20170410_01_006.mat
+    expected_awi_null_to_null_pulse_width = 0.075697595645
+    expected_awi_equivalent_pulse_width = 0.028389437310606058
+    assert awi_full.n2n == expected_awi_null_to_null_pulse_width
+    assert awi_full.epw == expected_awi_equivalent_pulse_width
+    assert awi_meta.n2n == expected_awi_null_to_null_pulse_width
+    assert awi_meta.epw == expected_awi_equivalent_pulse_width
     oib_full.calcpulsewidth()
     oib_meta.calcpulsewidth()
+    # expected OIB values based on Data_20160419_04_010.mat
+    expected_oib_null_to_null_pulse_width = 0.20186025505333335
+    expected_oib_equivalent_pulse_width = 0.07570516616161617
+    assert oib_full.n2n == expected_oib_null_to_null_pulse_width
+    assert oib_full.epw == expected_oib_equivalent_pulse_width
+    assert oib_meta.n2n == expected_oib_null_to_null_pulse_width
+    assert oib_meta.epw == expected_oib_equivalent_pulse_width
