@@ -1,6 +1,6 @@
 
 
-# pyWavelet
+# pyWavelet (name TBC)
 
 This is a package that Josh wants to be made legit.
 
@@ -8,14 +8,15 @@ This is a package that Josh wants to be made legit.
 
 
 
+## Usage and development instructions
 
-
-## 1) Fork and/or Clone this repository
+### 1) Fork and/or Clone this repository
 
 Do it.
 
-## 2) Python environment creation
+### 2) Python environment creation
 
+Get conda installed if you don't have it already:
 ```
 # Windows x64 exe installer
 https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe
@@ -30,7 +31,7 @@ conda env create -f requirements.yml
 conda activate py3-pyWavelet
 ```
 
-## 3) Installing `pyWavelet`
+### 3) Installing `pyWavelet`
 
 ```
 cd /path/to/pywavelet/project/root/dir
@@ -40,20 +41,20 @@ pip install .
 
 Now you can import the `pyWavelet` module and its associated submodules, or checkout the jupyter notebooks within this repo.
 
-## (Optional) Testing
-### Setup
+### (Optional) Testing
+#### Setup
 
 ```
 cd /path/to/pywavelet/project/root/dir
 ```
 
-### Running tests
+#### Running tests
 
 ```
 pytest 
 ```
 
-### Running tests and generating coverage reports
+#### Running tests and generating coverage reports
 These commands run the tests and generate a coverage report for any untested files where the `Missing` columns indicates line numbers that still require testing
 
 ```
