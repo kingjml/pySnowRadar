@@ -9,3 +9,5 @@ dependencies:
   - python=3
   - pywavelets
   - scipy
+  - pytest
+  - coverage
