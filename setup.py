@@ -18,6 +18,4 @@ setup(
         'License :: canada_open?',
         'Operating System :: OS Independent',
     ],
-    setup_requires=['pytest-runner', ],
-    tests_requires=['pytest', 'coverage', ],
 )

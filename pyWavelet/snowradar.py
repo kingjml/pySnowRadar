@@ -89,6 +89,7 @@ class SnowRadar:
 
 #The OIB snow radar (2-8 GHz) data comes as matlab v5
 #We use a bit of hacky magic to fit it into numpy arrays from dicts
+#Need to check file type where NSIDC = NC and CRESIS = MAT
 class OIB(SnowRadar):
     def __init__(self, file_path, l_case='meta'):
         super().__init__(file_path, l_case)
@@ -101,6 +102,7 @@ class OIB(SnowRadar):
 
         lats = radar_dat['Latitude']
         lons = radar_dat['Longitude']
+        
         if l_case == 'meta':
             time_start = radar_dat['GPS_time'].min()
             time_end = radar_dat['GPS_time'].max()
@@ -118,7 +120,23 @@ class OIB(SnowRadar):
             self.time_fast = radar_dat['Time']
             self.lat = lats
             self.lon = lons
+            self.surface = radar_dat['Surface']
             self.elevation = radar_dat['Elevation']
+            self.roll = radar_dat['Roll']
+            self.pitch = radar_dat['Pitch']
+            
+            if 'Elevation_Correction' in radar_dat.keys():
+                self.elv_corr = radar_dat['Elevation_Correction']
+                self.corrected = True
+            else:
+                self.corrected = False
+            
+            #Check if the FMCW echograms are compressed at source
+            if 'Truncate_Bins' in radar_dat.keys():
+                self.compressed = True
+                self.trunc_bins = radar_dat['Truncate_Bins']
+            else:
+                self.compressed = False
 
         gps_times = radar_dat['GPS_time']
         utc_times = [timefunc.utcleap(gps) for gps in gps_times]
@@ -178,8 +196,8 @@ class AWI(SnowRadar):
             self.time_utc = np.asarray([
                 timefunc.utcleap(t) for t in self.time_gps
             ])
-            self.data_radar = radar_dat['Data'].value
-            self.time_fast = radar_dat['Time'].value
+            self.data_radar = np.transpose(radar_dat['Data'].value)
+            self.time_fast = radar_dat['Time'].value.flatten()
             self.lat = lats
             self.lon = lons
             self.elevation = radar_dat['Elevation'].value
