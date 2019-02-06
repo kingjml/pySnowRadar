@@ -10,7 +10,7 @@ C = 299792458 #Vacuum speed of light
 QC_PITCH_MAX = 5 #Max ATM pitch in def
 QC_ROLL_MAX = 5 #Max ATM roll in deg
 
-#TODO overload the class so it can except botht the .mat and NC snow radar files
+# TODO overload the class so it can except botht the .mat and NC snow radar files
 class SnowRadar:
     def __init__(self, file_path, l_case):
         
@@ -21,10 +21,7 @@ class SnowRadar:
         self.air_snow = None
         self.snow_ice = None
         self.epw = None #equiv_pulse_width 
-        self.n2n = None #Null to Null space        
-        
-        #self.qc_pitch = np.any(radar_dat['Pitch'] > QC_PITCH_MAX)
-        #self.qc_roll = np.any(radar_dat['Roll'] > QC_ROLL_MAX)
+        self.n2n = None #Null to Null space
         
     def as_dict(self):
         '''generic method, to be extended by OIB and AWI subclasses'''
@@ -128,6 +125,7 @@ class OIB(SnowRadar):
     def __init__(self, file_path, l_case='meta'):
         super().__init__(file_path, l_case)
         radar_dat = matfunc.loadmat(file_path)
+        self.data_type = 'OIB_MAT'
         self.bandwidth = np.abs((radar_dat['param_records']['radar']['wfs']['f1'] -
                           radar_dat['param_records']['radar']['wfs']['f0']) *
                           radar_dat['param_records']['radar']['wfs']['fmult'])
@@ -154,16 +152,22 @@ class OIB(SnowRadar):
             self.time_fast = radar_dat['Time']
             self.lat = lats
             self.lon = lons
-            self.surface = radar_dat['Surface']
             self.elevation = radar_dat['Elevation']
             self.roll = radar_dat['Roll']
             self.pitch = radar_dat['Pitch']
             
             if 'Elevation_Correction' in radar_dat.keys():
-                self.elv_corr = radar_dat['Elevation_Correction']
-                self.corrected = True
+                self.surface = radar_dat['Surface']
             else:
-                self.corrected = False
+                print('Surface unavailable')
+                self.surface = None
+                
+            # Looks like there are correcltions available for some files
+            # If this field is available its an easy fix
+            if 'Elevation_Correction' in radar_dat.keys():
+                self.elv_corr = radar_dat['Elevation_Correction']
+            else:
+                self.elv_corr = None
             
             #Check if the FMCW echograms are compressed at source
             if 'Truncate_Bins' in radar_dat.keys():
@@ -204,6 +208,8 @@ class AWI(SnowRadar):
         super().__init__(file_path, l_case)
         radar_dat = h5py.File(file_path)
         
+        self.data_type = 'AWI_MAT'
+
         #Not sure why but there are two records for f0 and f1. The first one is only a 2Ghz range?
         f0 = radar_dat[list(radar_dat['param_records']['radar']['wfs']['f0'])[1][0]].value
         f1 = radar_dat[list(radar_dat['param_records']['radar']['wfs']['f1'])[1][0]].value
@@ -228,14 +234,20 @@ class AWI(SnowRadar):
         elif l_case=='full':
             self.time_gps = radar_dat['GPS_time'].value
             self.time_utc = np.asarray([
-                timefunc.utcleap(t) for t in self.time_gps
-            ])
+                timefunc.utcleap(t) for t in self.time_gps])
             self.data_radar = np.transpose(radar_dat['Data'].value)
             self.time_fast = radar_dat['Time'].value.flatten()
             self.lat = lats
             self.lon = lons
             self.elevation = radar_dat['Elevation'].value
-            self.surface = radar_dat['Surface'].value
+            
+            # TODO: If there is not a rough surface available
+            # generate one quickly for the elevation correction
+            if 'Surface' in [key for key in radar_dat.keys()]:
+                self.surface = radar_dat['Surface'].value
+            else:
+                print('Surface unavailable')
+                self.surface = None
 
         self.extent = np.hstack((
             lons.min(), lats.min(),
