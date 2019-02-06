@@ -87,6 +87,40 @@ class SnowRadar:
         self.n2n = null_2_time * C
 
 
+    def elevation_compensation(self, er_ice=3.15):
+        '''
+        Ported by Josh King from CRESIS elevation_compensation.m by John Paden
+        https://github.com/kingjml/pyWavelet/blob/master/pyWavelet/legacy/elevation_compensation.m
+
+        This will not work on instances of basic SnowRadar class 
+        since they do not have self.data_radar, self.time_utc, 
+        self.elevation, self.surface attributes
+
+        MikeB: consider setting up AbstractBaseClass and AbstractBaseMethod?
+        '''
+        max_elev = self.elevation.max()
+        half_C = C * 0.5 
+        some_value = half_C / np.sqrt(er_ice)
+
+        min_elev = np.min(
+            self.elevation - self.surface * half_C -
+            (self.time_fast[-1] - self.surface) * 
+            some_value
+        )
+        dr = self.dft * some_value
+        dt_air = dr / half_C
+        dt_ice = self.dft 
+        elev_axis = np.arange(max_elev, min_elev, -dr)
+        zero_pad_len = len(elev_axis) - len(self.time_fast) - 1 #MB: use .shape[0] instead?
+        
+
+
+
+
+
+	# rest of the method goes here :+1:
+
+
 #The OIB snow radar (2-8 GHz) data comes as matlab v5
 #We use a bit of hacky magic to fit it into numpy arrays from dicts
 #Need to check file type where NSIDC = NC and CRESIS = MAT
