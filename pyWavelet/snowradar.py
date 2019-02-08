@@ -84,6 +84,117 @@ class SnowRadar:
         self.n2n = null_2_time * C
 
 
+    def elevation_compensation(self, perm_ice=3.15):
+        '''
+        Ported by Josh King from CRESIS elevation_compensation.m by John Paden
+        https://github.com/kingjml/pyWavelet/blob/master/pyWavelet/legacy/elevation_compensation.m
+
+        Inputs:
+            perm_ice: The permittivity of ice (default 3.15)
+
+        Outputs:
+            elev_axis: elevation axis based on bin timing and an assumption of permittivity
+
+        Notes:
+            This will not work on instances of basic SnowRadar class 
+            since they do not have self.data_radar, self.time_utc, 
+            self.elevation, self.surface attributes
+
+            MikeB: might be worth investigating use of AbstractBaseClasses/Methods
+            or factory methods (https://stackoverflow.com/a/682545)
+            for the different inputs (AWI, OIB, CRESIS, NSIDC, etc.)
+        '''
+        # Quick check for existance of non-null 'surface' data attribute 
+        if self.surface is None:
+            print('Elevation compensation not possible without surface estimate')
+            return
+
+        #Mikeb: placeholders for commonly-repeated operations
+        half_speed_of_light = C * 0.5 
+        half_c_through_ice = half_speed_of_light / np.sqrt(perm_ice) 
+        time_fast_size = len(self.time_fast)        # TODO: better name for this?
+
+        max_elev = self.elevation.max()
+        min_elev = np.min(
+            self.elevation - self.surface * half_speed_of_light -
+            (self.time_fast[-1] - self.surface) * half_c_through_ice
+        )
+
+        # Create an elevation axis based on the bin timing and an assumption of permittivity
+        delta_range = self.dft * half_c_through_ice   
+        dt_air = delta_range / half_speed_of_light  # TODO: better name for this?
+        dt_ice = self.dft                           # TODO: Is this correct?
+        elev_axis = np.arange(max_elev, min_elev, -delta_range)
+
+        # Zero-pad the radar data to provide space for interpolation
+        zero_pad_len = len(elev_axis) - time_fast_size - 1
+        # This will be our new compensated radar data array
+        radar_comp = np.concatenate((
+            self.data_radar, 
+            np.zeros((zero_pad_len, self.data_radar.shape[1]))),
+            axis=0
+        )
+
+        # Create the corrections to be applied
+        d_range = max_elev - self.elevation
+        d_time = d_range / half_speed_of_light
+        d_bins = np.round(d_time / dt_ice)
+
+        def create_compensation(row_idx):
+            ''' 
+            Bad function name because I don't know what it's doing
+
+            Can probably be refactored
+            '''
+            e_val = self.elevation[row_idx, 0]
+            s_val = self.surface[row_idx, 0]
+            surf_elev = e_val - s_val * half_speed_of_light
+            time0 = -(max_elev - e_val) / half_speed_of_light
+            last_air_idx = np.max(np.argwhere(elev_axis > surf_elev))
+            new_time = (time0 + dt_air * np.arange(0, last_air_idx - 1))
+            if last_air_idx < elev_axis.shape[0]:
+                first_ice_idx = last_air_idx + 1
+                time0 = s_val + (surf_elev - elev_axis[first_ice_idx]) / half_c_through_ice
+                new_time = np.concatenate((
+                    new_time, 
+                    time0 + dt_ice * (
+                        np.arange(0, len(elev_axis) - len(new_time) - 1)
+                    )), 
+                    axis=0
+                )
+            return new_time
+
+        for idx in range(self.data_radar.shape[1]):
+            comp = create_compensation(idx)
+            data_subset = self.data_radar[:time_fast_size, idx]
+            # ensure that the shapes of self.time_fast and data_subset are the same
+            if self.time_fast.shape != data_subset.shape:
+                raise BaseException(
+                    'Cannot complete elevation compensation: ' +\
+                    '\n\ttime_fast and data_subset not same shape at index %s' % idx
+                )
+            radar_comp[:, idx] = np.interp(
+                comp,
+                self.time_fast,
+                data_subset
+            )
+        
+        # MikeB: I am strongly against having methods that
+        # modify class attributes instead of returning outputs.
+        #
+        # Users will not have any indication that their data
+        # has been modified unless they are paying attention or 
+        # have read the source code.
+        # 
+        # There is also no way to backtrack once you run the function,
+        # short of re-reading the raw datafiles again.
+        self.elevation += d_range
+        self.surface += d_time
+        self.data_radar = radar_comp
+        self.surface_elev = self.elevation - self.surface * half_speed_of_light
+        return elev_axis
+
+
 # The OIB snow radar (2-8 GHz) data comes as matlab v5
 # We use a bit of hacky magic to fit it into numpy arrays from dicts
 # TODO: Check file type where NSIDC = NC and CRESIS = MAT
