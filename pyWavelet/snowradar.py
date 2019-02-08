@@ -93,7 +93,9 @@ class SnowRadar:
         since they do not have self.data_radar, self.time_utc, 
         self.elevation, self.surface attributes
 
-        MikeB: other options are AbstractBaseClasses/Methods, alternate constructors in SnowRadar...
+        MikeB: might be worth investigating use of AbstractBaseClasses/Methods
+        or factory methods (https://stackoverflow.com/a/682545)
+        for the different inputs (AWI, OIB, CRESIS, NSIDC, etc.)
         '''
         # Quick check for existance of non-null 'surface' data attribute 
         if self.surface is None:
@@ -103,6 +105,7 @@ class SnowRadar:
         #Mikeb: placeholders for commonly-repeated operations
         half_speed_of_light = C * 0.5 
         i = half_speed_of_light / np.sqrt(perm_ice) # TODO: better name for this?
+        time_fast_size = len(self.time_fast)        # TODO: better name for this?
 
         max_elev = self.elevation.max()
         min_elev = np.min(
@@ -111,18 +114,19 @@ class SnowRadar:
         )
 
         # Create an elevation axis based on the bin timing and an assumption of permittivity
-        dr = self.dft * i
-        dt_air = dr / half_speed_of_light
-        dt_ice = self.dft
+        dr = self.dft * i                           # TODO: better name for this?
+        dt_air = dr / half_speed_of_light           # TODO: better name for this?
+        dt_ice = self.dft                           # TODO: better name for this?
         elev_axis = np.arange(max_elev, min_elev, -dr)
 
         # Zero-pad the radar data to provide space for interpolation
-        zero_pad_len = len(elev_axis) - len(self.time_fast) - 1
+        zero_pad_len = len(elev_axis) - time_fast_size - 1
+        # This will be our new compensated radar data array
         radar_comp = np.concatenate((
             self.data_radar, 
             np.zeros((zero_pad_len, self.data_radar.shape[1]))),
             axis=0
-        )        
+        )
 
         # Create the corrections to be applied
         d_range = max_elev - self.elevation
@@ -130,7 +134,11 @@ class SnowRadar:
         d_bins = np.round(d_time / dt_ice)
 
         def create_compensation(row_idx):
-            ''' this can probably be refactored '''
+            ''' 
+            Bad function name because I don't know what it's doing
+
+            Can probably be refactored
+            '''
             e_val = self.elevation[row_idx, 0]
             s_val = self.surface[row_idx, 0]
             surf_elev = e_val - s_val * half_speed_of_light
@@ -143,16 +151,15 @@ class SnowRadar:
                 new_time = np.concatenate((
                     new_time, 
                     time0 + dt_ice * (
-                        np.arange(0, elev_axis.shape[0] - new_time.shape[0] - 1)
+                        np.arange(0, len(elev_axis) - len(new_time) - 1)
                     )), 
                     axis=0
                 )
             return new_time
-        
-        
+
         for idx in range(self.data_radar.shape[1]):
             comp = create_compensation(idx)
-            data_subset = self.data_radar[:len(self.time_fast), idx]
+            data_subset = self.data_radar[:time_fast_size, idx]
             radar_comp[:, idx] = np.interp(
                 comp,
                 self.time_fast,
@@ -167,7 +174,7 @@ class SnowRadar:
         # have read the source code.
         # 
         # There is also no way to backtrack once you run the function,
-        # short of re-reading the raw datafiles again
+        # short of re-reading the raw datafiles again.
         self.elevation += d_range
         self.surface += d_time
         self.data_radar = radar_comp
@@ -177,7 +184,7 @@ class SnowRadar:
 
 # The OIB snow radar (2-8 GHz) data comes as matlab v5
 # We use a bit of hacky magic to fit it into numpy arrays from dicts
-# TODO: Check check file type where NSIDC = NC and CRESIS = MAT
+# TODO: Check file type where NSIDC = NC and CRESIS = MAT
 class OIB(SnowRadar):
     def __init__(self, file_path, l_case='meta'):
         super().__init__(file_path, l_case)
