@@ -89,13 +89,20 @@ class SnowRadar:
         Ported by Josh King from CRESIS elevation_compensation.m by John Paden
         https://github.com/kingjml/pyWavelet/blob/master/pyWavelet/legacy/elevation_compensation.m
 
-        This will not work on instances of basic SnowRadar class 
-        since they do not have self.data_radar, self.time_utc, 
-        self.elevation, self.surface attributes
+        Inputs:
+            perm_ice: The permittivity of ice (default 3.15)
 
-        MikeB: might be worth investigating use of AbstractBaseClasses/Methods
-        or factory methods (https://stackoverflow.com/a/682545)
-        for the different inputs (AWI, OIB, CRESIS, NSIDC, etc.)
+        Outputs:
+            elev_axis: elevation axis based on bin timing and an assumption of permittivity
+
+        Notes:
+            This will not work on instances of basic SnowRadar class 
+            since they do not have self.data_radar, self.time_utc, 
+            self.elevation, self.surface attributes
+
+            MikeB: might be worth investigating use of AbstractBaseClasses/Methods
+            or factory methods (https://stackoverflow.com/a/682545)
+            for the different inputs (AWI, OIB, CRESIS, NSIDC, etc.)
         '''
         # Quick check for existance of non-null 'surface' data attribute 
         if self.surface is None:
@@ -104,20 +111,20 @@ class SnowRadar:
 
         #Mikeb: placeholders for commonly-repeated operations
         half_speed_of_light = C * 0.5 
-        i = half_speed_of_light / np.sqrt(perm_ice) # TODO: better name for this?
+        half_c_through_ice = half_speed_of_light / np.sqrt(perm_ice) 
         time_fast_size = len(self.time_fast)        # TODO: better name for this?
 
         max_elev = self.elevation.max()
         min_elev = np.min(
             self.elevation - self.surface * half_speed_of_light -
-            (self.time_fast[-1] - self.surface) * i
+            (self.time_fast[-1] - self.surface) * half_c_through_ice
         )
 
         # Create an elevation axis based on the bin timing and an assumption of permittivity
-        dr = self.dft * i                           # TODO: better name for this?
-        dt_air = dr / half_speed_of_light           # TODO: better name for this?
-        dt_ice = self.dft                           # TODO: better name for this?
-        elev_axis = np.arange(max_elev, min_elev, -dr)
+        delta_range = self.dft * half_c_through_ice   
+        dt_air = delta_range / half_speed_of_light  # TODO: better name for this?
+        dt_ice = self.dft                           # TODO: Is this correct?
+        elev_axis = np.arange(max_elev, min_elev, -delta_range)
 
         # Zero-pad the radar data to provide space for interpolation
         zero_pad_len = len(elev_axis) - time_fast_size - 1
@@ -147,7 +154,7 @@ class SnowRadar:
             new_time = (time0 + dt_air * np.arange(0, last_air_idx - 1))
             if last_air_idx < elev_axis.shape[0]:
                 first_ice_idx = last_air_idx + 1
-                time0 = s_val + (surf_elev - elev_axis[first_ice_idx]) / i
+                time0 = s_val + (surf_elev - elev_axis[first_ice_idx]) / half_c_through_ice
                 new_time = np.concatenate((
                     new_time, 
                     time0 + dt_ice * (
@@ -160,6 +167,12 @@ class SnowRadar:
         for idx in range(self.data_radar.shape[1]):
             comp = create_compensation(idx)
             data_subset = self.data_radar[:time_fast_size, idx]
+            # ensure that the shapes of self.time_fast and data_subset are the same
+            if self.time_fast.shape != data_subset.shape:
+                raise BaseException(
+                    'Cannot complete elevation compensation: ' +\
+                    '\n\ttime_fast and data_subset not same shape at index %s' % idx
+                )
             radar_comp[:, idx] = np.interp(
                 comp,
                 self.time_fast,
@@ -179,7 +192,7 @@ class SnowRadar:
         self.surface += d_time
         self.data_radar = radar_comp
         self.surface_elev = self.elevation - self.surface * half_speed_of_light
-        return
+        return elev_axis
 
 
 # The OIB snow radar (2-8 GHz) data comes as matlab v5
