@@ -41,12 +41,21 @@ pip install .
 
 Now you can import the `pyWavelet` module and its associated submodules, or checkout the jupyter notebooks within this repo.
 
-### (Optional) Testing
+### Development notes
+
+Remember to re-install `pyWavelet` to your environment after you've made changes to the code with:
+```
+pip install . --upgrade
+```
+... assuming that you're inside the branch's root directory.
+
+### (Optional) Unit Testing
 #### Setup
 
 ```
 cd /path/to/pywavelet/project/root/dir
 ```
+Test files are stored under the `tests` subdirectory
 
 #### Running tests
 
