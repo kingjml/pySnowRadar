@@ -3,6 +3,8 @@ Functions to handle MATLAB data formats
 MAT file reader functions from here: https://stackoverflow.com/questions/7008608/scipy-io-loadmat-nested-structures-i-e-dictionaries
 '''
 import scipy.io as spio
+import h5py
+import numpy as np
 
 def loadmat(filename):
     '''
@@ -36,3 +38,18 @@ def _todict(matobj):
         else:
             out_dict[strg] = elem
     return out_dict
+
+def h5todict(h5f, path="/", exclude_names=None):
+    '''
+    A recursive function to create dictionaries from HDF5/MATLAB7
+    '''
+    ddict = {}
+    for key in h5f[path]:
+        if exclude_names is not None:
+            if key in exclude_names:
+                continue
+        if isinstance(h5f[path + "/" + key], h5py._hl.group.Group):
+            ddict[key] = h5todict(h5f, path + "/" + key)
+        else:
+            ddict[key] = np.squeeze(h5f[path + "/" + key][...])
+    return ddict
