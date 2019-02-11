@@ -201,7 +201,17 @@ class SnowRadar:
 class OIB(SnowRadar):
     def __init__(self, file_path, l_case='meta'):
         super().__init__(file_path, l_case)
-        radar_dat = matfunc.loadmat(file_path)
+        
+        # The version of the MAT file formats seem to be inconsistent
+        # This tries the two differnt approaches to read to find one that works
+        try:
+            radar_dat = matfunc.loadmat(file_path)
+        except NotImplementedError:
+            radar_dat =  h5py.File(file_path, 'r')
+            radar_dat = matfunc.h5todict(radar_dat, exclude_names='#refs#')
+        except:
+            ValueError('Could not read SnowRadar file')
+        
         self.data_type = 'OIB_MAT'
         self.bandwidth = np.abs((radar_dat['param_records']['radar']['wfs']['f1'] -
                           radar_dat['param_records']['radar']['wfs']['f0']) *
@@ -225,13 +235,20 @@ class OIB(SnowRadar):
             self.time_utc = np.asarray([
                 timefunc.utcleap(t) for t in self.time_gps
             ])
-            self.data_radar = radar_dat['Data']
+            
+                  
             self.time_fast = radar_dat['Time']
             self.lat = lats
             self.lon = lons
             self.elevation = radar_dat['Elevation']
             self.roll = radar_dat['Roll']
             self.pitch = radar_dat['Pitch']
+            
+            self.data_radar = radar_dat['Data']
+            # Make sure the radar data is oriented as expected
+            # with elevation bins on Y axis
+            if (self.data_radar.shape[0]==self.elevation.shape[0]):
+                 self.data_radar = np.transpose(self.data_radar)
             
             if 'Elevation_Correction' in radar_dat.keys():
                 self.surface = radar_dat['Surface']
