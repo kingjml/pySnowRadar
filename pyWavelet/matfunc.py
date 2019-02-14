@@ -39,17 +39,70 @@ def _todict(matobj):
             out_dict[strg] = elem
     return out_dict
 
-def h5todict(h5f, path="/", exclude_names=None):
+
+def unified_loader(sr_obj):
+    '''Loads SnowRadar MAT files depending on source'''
+    if sr_obj.data_type == 'OIB_MAT':
+        # The versions of the OIB MAT file formats seem to be inconsistent
+        # This tries the two different approaches to read to find one that works
+        try:
+            radar_dat = loadmat(sr_obj.file_path)
+        except NotImplementedError:
+            with h5py.File(sr_obj.file_path, 'r') as in_h5:
+                radar_dat = h5py_to_dict(in_h5, exclude_names='#refs#')
+        except:
+            raise IOError('Could not read OIB SnowRadar file: %s' % sr_obj.file_name)
+    elif sr_obj.data_type == 'AWI_MAT':
+        try:
+            with h5py.File(sr_obj.file_path, 'r') as in_h5:
+                radar_dat = h5py_to_dict(in_h5)
+        except:
+            raise IOError('Could not read AWI SnowRadar file: %s' % sr_obj.file_name)
+    else:
+        raise NotImplementedError('The supplied datafile format is not supported yet')
+    return radar_dat
+
+
+def h5py_to_dict(hdf5_obj, exclude_names=None):
     '''
-    A recursive function to create dictionaries from HDF5/MATLAB7
+    For the HDF5-compliant SnowRadar datasets (OIB 2017, AWI), this reader method
+    works for the majority of the important data.
+
+    There are still some HDF5-Object-References that do not get parsed for whatever
+    reason
     '''
-    ddict = {}
-    for key in h5f[path]:
-        if exclude_names is not None:
-            if key in exclude_names:
-                continue
-        if isinstance(h5f[path + "/" + key], h5py._hl.group.Group):
-            ddict[key] = h5todict(h5f, path + "/" + key)
-        else:
-            ddict[key] = np.squeeze(h5f[path + "/" + key][...])
-    return ddict
+    data = {}
+    # Note that exclude_names isn't really used recursively
+    # so it only operates at the root level
+    if not type(exclude_names) == list:
+        exclude_names = [exclude_names]
+    for k, v in hdf5_obj.items():
+        if k in exclude_names:
+            continue
+        if isinstance(v, h5py.Dataset):
+            # strings are encoded as uint16 for whatever reason
+            # thankfully there is a unique HDF attribute that flags encoded values
+            must_decode = 'MATLAB_int_decode' in list(v.attrs)
+            if must_decode:
+                # converts uint16 to Byte and decodes to string
+                # https://stackoverflow.com/a/45593385
+                data[k] = v.value.tobytes()[::2].decode()
+            else:
+                # need to convert HDF object references into actual data
+                dtype = v.value.dtype
+                if dtype == 'object':
+                    try:
+                        data[k] = np.array([
+                            np.squeeze(v.parent[reference].value)
+                            for reference in np.squeeze(v.value)
+                        ])
+                    except:
+                        pass
+                else:
+                    try: # try to convert 1x1 arrays into scalars
+                        data[k] = v.value.item()
+                    except ValueError: # keep NxN arrays the way they are
+                        data[k] = np.squeeze(v.value)
+        elif isinstance(v, h5py.Group):
+            data[k] = h5py_to_dict(v)
+    return data
