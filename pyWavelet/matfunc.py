@@ -86,6 +86,9 @@ def h5py_to_dict(hdf5_obj, exclude_names=None):
                 elif v.value.dtype == 'uint8':
                     # converts 1x1 uint8 array to single bool value
                     data[k] = v.value.astype(bool).item()
+                # empty attribute stored as 2-element array of type uint64
+                elif v.value.dtype == 'uint64' and v.value.shape == (2,):
+                    data[k] == None
             else:
                 # need to convert HDF object references into actual data
                 dtype = v.value.dtype
