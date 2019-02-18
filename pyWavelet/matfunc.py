@@ -42,24 +42,15 @@ def _todict(matobj):
 
 def unified_loader(sr_obj):
     '''Loads SnowRadar MAT files depending on source'''
-    if sr_obj.data_type == 'OIB_MAT':
-        # The versions of the OIB MAT file formats seem to be inconsistent
-        # This tries the two different approaches to read to find one that works
-        try:
-            radar_dat = loadmat(sr_obj.file_path)
-        except NotImplementedError:
-            with h5py.File(sr_obj.file_path, 'r') as in_h5:
-                radar_dat = h5py_to_dict(in_h5, exclude_names='#refs#')
-        except:
-            raise IOError('Could not read OIB SnowRadar file: %s' % sr_obj.file_name)
-    elif sr_obj.data_type == 'AWI_MAT':
-        try:
-            with h5py.File(sr_obj.file_path, 'r') as in_h5:
-                radar_dat = h5py_to_dict(in_h5)
-        except:
-            raise IOError('Could not read AWI SnowRadar file: %s' % sr_obj.file_name)
-    else:
-        raise NotImplementedError('The supplied datafile format is not supported yet')
+    # The versions of the OIB MAT file formats seem to be inconsistent
+    # This tries the two different approaches to read to find one that works
+    try:
+        radar_dat = loadmat(sr_obj.file_path)
+    except NotImplementedError:
+        with h5py.File(sr_obj.file_path, 'r') as in_h5:
+            radar_dat = h5py_to_dict(in_h5, exclude_names='#refs#')
+    except:
+        raise IOError('Could not read SnowRadar file: %s' % sr_obj.file_name)
     return radar_dat
 
 
