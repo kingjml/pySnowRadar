@@ -6,22 +6,42 @@ import numpy as np
 from scipy import signal
 from shapely.geometry import box
 
-C = 299792458 #Vacuum speed of light
-QC_PITCH_MAX = 5 #Max ATM pitch in def
-QC_ROLL_MAX = 5 #Max ATM roll in deg
+C = 299792458 # Vacuum speed of light
+QC_PITCH_MAX = 5 # Max ATM pitch in def
+QC_ROLL_MAX = 5 # Max ATM roll in deg
 
 # TODO overload the class so it can except botht the .mat and NC snow radar files
 class SnowRadar:
-    def __init__(self, file_path, l_case):
+    def __init__(self, file_path, l_case, decompress = False):
         
+        # Check if the file exists
+        if not os.path.isfile(file_path):
+            print('Error: File ' + file_path +' not found')
+            pass
+        else:
+            print('Processing: '+ file_path)
+ 
+        # Extract file info and create common vars
         self.file_path = os.path.abspath(file_path)
         self.file_name = os.path.basename(self.file_path)
         self.load_type = l_case
         
         self.air_snow = None
         self.snow_ice = None
-        self.epw = None #equiv_pulse_width 
-        self.n2n = None #Null to Null space
+        self.epw = None # Equiv pulse width 
+        self.n2n = None # Null to Null space
+        
+    def get_surface(self, smooth=True):
+        '''
+        Simple surface tracker based on maximum
+        This should be refined and is largely a place holder 
+        '''
+        if self.surface is not None:
+            print('Replacing origional surface')
+        
+        self.surf_bin = np.argmax(self.data_radar, axis=0)
+        self.surface = np.interp(self.surf_bin,np.arange(0,len(self.time_fast)),self.time_fast)
+        
         
     def as_dict(self):
         '''generic method, to be extended by OIB and AWI subclasses'''
@@ -56,7 +76,7 @@ class SnowRadar:
         spectral_win = signal.hann(n_band_points)
     
         # Frequency domain processing
-        #JK: Need to be careful here, f becomes an array if bandwidth is as well.
+        # JK: Need to be careful here, f becomes an array if bandwidth is as well.
         # Change it to use f.shape?
         freq_domain_signal = np.zeros(len(f)) 
         freq_domain_signal[np.abs(f) < half_bandwidth] = spectral_win
@@ -82,8 +102,24 @@ class SnowRadar:
         null_2_width = 2 * np.mean(closest_peaks[0:1])
         null_2_time = null_2_width * time_step
         self.n2n = null_2_time * C
-
-
+    
+    def decompress_data(self):
+        print('Decompressing data...') 
+        Nz = self.elv_corr.max()
+        Nt = Nz + len(self.trunc_bins)
+        self.elevation = self.elevation - self.elv_corr * self.dfr
+        self.surface = self.surface - self.elv_corr * self.dft
+        self.data_radar = np.pad(self.data_radar, [(Nz,0 ), (0, 0)], 'constant', constant_values=(np.nan))
+         
+        for rline in np.arange(0,self.data_radar.shape[1]):
+            self.data_radar[:, rline] = np.roll(self.data_radar[:, rline], -self.elv_corr[rline])
+        if len(self.time_fast) == len(self.trunc_bins):
+            t0 = self.time_fast[0] - Nz*dt
+        else:
+            t0 =  self.time_fast[self.trunc_bins[0]] - Nz * self.dft
+            self.time_fast = t0 + self.dft*np.arange(0, Nt-1)
+        print('finished')
+    
     def elevation_compensation(self, perm_ice=3.15):
         '''
         Ported by Josh King from CRESIS elevation_compensation.m by John Paden
@@ -104,24 +140,26 @@ class SnowRadar:
             or factory methods (https://stackoverflow.com/a/682545)
             for the different inputs (AWI, OIB, CRESIS, NSIDC, etc.)
         '''
+        #self.data_radar = np.flip(self.data_radar, 0)
+        
         # Quick check for existance of non-null 'surface' data attribute 
         if self.surface is None:
             print('Elevation compensation not possible without surface estimate')
             return
 
-        #Mikeb: placeholders for commonly-repeated operations
+        # Mikeb: placeholders for commonly-repeated operations
         half_speed_of_light = C * 0.5 
-        half_c_through_ice = half_speed_of_light / np.sqrt(perm_ice) 
+        half_c_in_ice = half_speed_of_light / np.sqrt(perm_ice) 
         time_fast_size = len(self.time_fast)        # TODO: better name for this?
 
         max_elev = self.elevation.max()
         min_elev = np.min(
             self.elevation - self.surface * half_speed_of_light -
-            (self.time_fast[-1] - self.surface) * half_c_through_ice
+            (self.time_fast[-1] - self.surface) * half_c_in_ice
         )
 
         # Create an elevation axis based on the bin timing and an assumption of permittivity
-        delta_range = self.dft * half_c_through_ice   
+        delta_range = self.dft * half_c_in_ice   
         dt_air = delta_range / half_speed_of_light  # TODO: better name for this?
         dt_ice = self.dft                           # TODO: Is this correct?
         elev_axis = np.arange(max_elev, min_elev, -delta_range)
@@ -143,18 +181,20 @@ class SnowRadar:
         def create_compensation(row_idx):
             ''' 
             Bad function name because I don't know what it's doing
-
+            
             Can probably be refactored
+            
+            JK: This function finds the ice interface and scales the time array depending on medium
             '''
-            e_val = self.elevation[row_idx, 0]
-            s_val = self.surface[row_idx, 0]
+            e_val = self.elevation[row_idx]
+            s_val = self.surface[row_idx]
             surf_elev = e_val - s_val * half_speed_of_light
             time0 = -(max_elev - e_val) / half_speed_of_light
             last_air_idx = np.max(np.argwhere(elev_axis > surf_elev))
             new_time = (time0 + dt_air * np.arange(0, last_air_idx - 1))
             if last_air_idx < elev_axis.shape[0]:
                 first_ice_idx = last_air_idx + 1
-                time0 = s_val + (surf_elev - elev_axis[first_ice_idx]) / half_c_through_ice
+                time0 = s_val + (surf_elev - elev_axis[first_ice_idx]) / half_c_in_ice
                 new_time = np.concatenate((
                     new_time, 
                     time0 + dt_ice * (
@@ -195,7 +235,7 @@ class SnowRadar:
         return elev_axis
 
 
-# The OIB snow radar (2-8 GHz) data comes as matlab v5
+# The OIB snow radar (2-8 GHz) data comes as matlab v5 or v7
 # We use a bit of hacky magic to fit it into numpy arrays from dicts
 # TODO: Check file type where NSIDC = NC and CRESIS = MAT
 class OIB(SnowRadar):
@@ -206,11 +246,14 @@ class OIB(SnowRadar):
         # This tries the two differnt approaches to read to find one that works
         try:
             radar_dat = matfunc.loadmat(file_path)
+            print('Loaded')
         except NotImplementedError:
             radar_dat =  h5py.File(file_path, 'r')
             radar_dat = matfunc.h5todict(radar_dat, exclude_names='#refs#')
         except:
             ValueError('Could not read SnowRadar file')
+            
+        print()
         
         self.data_type = 'OIB_MAT'
         self.bandwidth = np.abs((radar_dat['param_records']['radar']['wfs']['f1'] -
@@ -250,7 +293,7 @@ class OIB(SnowRadar):
             if (self.data_radar.shape[0]==self.elevation.shape[0]):
                  self.data_radar = np.transpose(self.data_radar)
             
-            if 'Elevation_Correction' in radar_dat.keys():
+            if 'Surface' in radar_dat.keys():
                 self.surface = radar_dat['Surface']
             else:
                 print('Surface unavailable')
@@ -258,18 +301,20 @@ class OIB(SnowRadar):
                 
             # Looks like there are correcltions available for some files
             # If this field is available its an easy fix
+            # Check if the FMCW echograms are compressed at source
+            if 'Truncate_Bins' in radar_dat.keys():
+                print('File truncated. Decompression optional.')
+                self.trunc_bins = radar_dat['Truncate_Bins'].astype(np.int64)
+            else: 
+                self.trunc_bins = None
+                
             if 'Elevation_Correction' in radar_dat.keys():
-                self.elv_corr = radar_dat['Elevation_Correction']
+                print('Elevation corrections available')
+                self.elv_corr = radar_dat['Elevation_Correction'].astype(np.int64)
             else:
                 self.elv_corr = None
-            
-            #Check if the FMCW echograms are compressed at source
-            if 'Truncate_Bins' in radar_dat.keys():
-                self.compressed = True
-                self.trunc_bins = radar_dat['Truncate_Bins']
-            else:
-                self.compressed = False
-
+                # TODO: check the correction flag
+                      
         gps_times = radar_dat['GPS_time']
         utc_times = [timefunc.utcleap(gps) for gps in gps_times]
         self.file_epoch = utc_times
@@ -293,8 +338,7 @@ class OIB(SnowRadar):
 
     def __str__(self):
         return f'OIB Datafile: {self.file_name}'   
-
-
+    
 #The AWI snow radar data comes as matlab v7 so its closer to a HDF file
 #Use h5py to read and process it
 class AWI(SnowRadar):
@@ -333,12 +377,14 @@ class AWI(SnowRadar):
             self.time_fast = radar_dat['Time'].value.flatten()
             self.lat = lats
             self.lon = lons
-            self.elevation = radar_dat['Elevation'].value
+            self.elevation = radar_dat['Elevation'].value.flatten()
+            self.pitch = radar_dat['Pitch'].value.flatten()
+            self.roll = radar_dat['Roll'].value.flatten()
             
             # TODO: If there is not a rough surface available
             # generate one quickly for the elevation correction
             if 'Surface' in [key for key in radar_dat.keys()]:
-                self.surface = radar_dat['Surface'].value
+                self.surface = radar_dat['Surface'].value.flatten()
             else:
                 print('Surface unavailable')
                 self.surface = None
