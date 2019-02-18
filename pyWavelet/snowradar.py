@@ -12,10 +12,10 @@ QC_ROLL_MAX = 5 # Max ATM roll in deg
 
 # https://ops.cresis.ku.edu/wiki/index.php/Raw_File_Guide
 CRESIS_RAW_FILE_LUT = {
-    'snow': 'OIB_MAT',
-    'snow2': 'OIB_MAT',
-    'snow3': 'OIB_MAT',
-    'snow4': 'OIB_MAT',
+    'snow': 'OIB_MAT', 'kuband': 'OIB_MAT',
+    'snow2': 'OIB_MAT', 'kuband2': 'OIB_MAT',
+    'snow3': 'OIB_MAT', 'kuband3': 'OIB_MAT',
+    'snow4': 'OIB_MAT', 'kuband4': 'OIB_MAT',
     'snow5': 'AWI_MAT',
     'snow8': 'OIB_MAT',
     'snow9': 'OIB_MAT',
@@ -43,8 +43,6 @@ class SnowRadar:
         self.compressed = False
         radar_dat = matfunc.unified_loader(self)
         self._populate_instanceattr(radar_dat)
-        self.epw = None # Equiv pulse width 
-        self.n2n = None # Null to Null space
         
     def get_surface(self, smooth=True):
         '''
@@ -129,7 +127,7 @@ class SnowRadar:
             self.lat = lats
             self.lon = lons
             self.roll = radar_dat['Roll']
-            self.pitch = radar_dat['Pitch']     
+            self.pitch = radar_dat['Pitch']
             # Sometimes the surface is recorded in the matfile
             try:
                 self.surface = radar_dat['Surface']

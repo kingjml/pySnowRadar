@@ -78,9 +78,14 @@ def h5py_to_dict(hdf5_obj, exclude_names=None):
             # data we need
             must_decode = 'MATLAB_int_decode' in list(v.attrs)
             if must_decode:
-                # converts uint16 to Byte and decodes to string
-                # https://stackoverflow.com/a/45593385
-                data[k] = v.value.tobytes()[::2].decode()
+                # treat uint8 differently from uint16
+                if v.value.dtype == 'uint16':
+                    # converts uint16 to Byte and decodes to string
+                    # https://stackoverflow.com/a/45593385
+                    data[k] = v.value.tobytes()[::2].decode()
+                elif v.value.dtype == 'uint8':
+                    # converts 1x1 uint8 array to single bool value
+                    data[k] = v.value.astype(bool).item()
             else:
                 # need to convert HDF object references into actual data
                 dtype = v.value.dtype
