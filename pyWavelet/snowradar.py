@@ -66,7 +66,7 @@ class SnowRadar:
         fast_times = radar_dat['Time']
         self.bandwidth = np.abs((f1 - f0) * fmult)
         self.dft = fast_times[1] - fast_times[0] # delta fast time
-        self.dfr = (self.dft * 0.5) * C # delta fast time range
+        self.dfr = self.dft * 0.5 * C # delta fast time range
         # load just the metadata concerning timing
         if self.load_type == 'meta':
             time_start = gps_times.min()
