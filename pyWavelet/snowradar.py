@@ -2,6 +2,7 @@ import os
 import h5py
 from . import matfunc
 from . import timefunc
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
 from shapely.geometry import box
@@ -54,7 +55,6 @@ class SnowRadar:
         
         self.surf_bin = np.argmax(self.data_radar, axis=0)
         self.surface = np.interp(self.surf_bin,np.arange(0,len(self.time_fast)),self.time_fast)
-        
         
     def as_dict(self):
         '''generic method, to be extended by OIB and AWI subclasses'''
@@ -136,12 +136,12 @@ class SnowRadar:
             # Sometimes there are elev corrections available in
             # the matfile
             try:
-                self.elv_corr = radar_dat['Elevation_Correction']
+                self.elv_corr = radar_dat['Elevation_Correction'].astype(int)
             except KeyError:
                 pass
             # Check if the FMCW echograms are compressed in the matfile
             try:
-                self.trunc_bins = radar_dat['Truncate_Bins']
+                self.trunc_bins = radar_dat['Truncate_Bins'].astype(int)
                 self.compressed = True
             except KeyError:
                 pass       
@@ -336,6 +336,20 @@ class SnowRadar:
         self.surface_elev = self.elevation - self.surface * half_speed_of_light
         return elev_axis
 
+    def plot_quicklook(self, scale_factor=4):
+        with np.errstate(divide='ignore'):
+            radar_sub = 20 * np.log10(self.data_radar)
+        fig, ax = plt.subplots(figsize=(12,10))
+        im = ax.imshow(radar_sub, cmap='gist_gray')
+        ax.set_title(self.file_name, fontdict={'size':'x-large'})
+        ax.set_aspect('auto')
+        fig.colorbar(im, ax=ax)
+        fig.tight_layout()
+        plt.show()
+
+    def __str__(self):
+        return f'{self.data_type} Datafile: {self.file_name}'
+
 
 # The OIB snow radar (2-8 GHz) data comes as matlab v5 or v7
 # We use a bit of hacky magic to fit it into numpy arrays from dicts
@@ -357,9 +371,6 @@ class OIB(SnowRadar):
         })
         return result
 
-    def __str__(self):
-        return f'{self.data_type} Datafile: {self.file_name}'
-
 
 # The AWI snow radar data comes as matlab v7 so its closer to a HDF file
 # Use h5py to read and process it
@@ -379,6 +390,3 @@ class AWI(SnowRadar):
             'poly': self.poly.wkt
         })
         return result
-
-    def __str__(self):
-        return f'{self.data_type} Datafile: {self.file_name}'
