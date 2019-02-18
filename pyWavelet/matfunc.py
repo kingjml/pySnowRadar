@@ -39,17 +39,25 @@ def _todict(matobj):
             out_dict[strg] = elem
     return out_dict
 
-def h5todict(h5f, path="/", exclude_names=None):
-    '''
-    A recursive function to create dictionaries from HDF5/MATLAB7
-    '''
-    ddict = {}
-    for key in h5f[path]:
+def h5todict(hdf5_obj, exclude_names=None):
+    data = {}
+    for k, v in hdf5_obj.items():
         if exclude_names is not None:
-            if key in exclude_names:
-                continue
-        if isinstance(h5f[path + "/" + key], h5py._hl.group.Group):
-            ddict[key] = h5todict(h5f, path + "/" + key)
-        else:
-            ddict[key] = np.squeeze(h5f[path + "/" + key][...])
-    return ddict
+            if k in exclude_names:
+                continue 
+        if isinstance(v, h5py._hl.dataset.Dataset):
+            # strings are encoded as uint16 for whatever reason
+            # thankfully there is a unique HDF attribute that flags encoded values
+            must_decode = 'MATLAB_int_decode' in list(v.attrs)
+            if must_decode:
+                # converts uint16 to Byte and decodes to string
+                # https://stackoverflow.com/a/45593385
+                data[k] = v.value.tobytes()[::2].decode()
+            else:
+                try: # try to convert 1x1 arrays into scalars
+                    data[k] = v.value.item()
+                except ValueError: # keep NxN arrays the way they are, and squeeze Nx1 into 1-D array
+                    data[k] = np.squeeze(v.value)
+        elif isinstance(v, h5py._hl.group.Group):
+            data[k] = h5todict(v)
+    return data
