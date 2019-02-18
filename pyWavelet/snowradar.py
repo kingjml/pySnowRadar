@@ -7,8 +7,8 @@ from scipy import signal
 from shapely.geometry import box
 
 C = 299792458 # Vacuum speed of light
-QC_PITCH_MAX = 5 #Max ATM pitch in def
-QC_ROLL_MAX = 5 #Max ATM roll in deg
+QC_PITCH_MAX = 5 # Max ATM pitch in def
+QC_ROLL_MAX = 5 # Max ATM roll in deg
 
 # https://ops.cresis.ku.edu/wiki/index.php/Raw_File_Guide
 CRESIS_RAW_FILE_LUT = {
@@ -28,6 +28,8 @@ class SnowRadar:
         self.file_path = os.path.abspath(file_path)
         if not os.path.exists(self.file_path):
             raise FileNotFoundError(self.file_path)
+        else:
+            print('Processing: ' + self.file_path)
         self.file_name = os.path.basename(self.file_path)
         self.load_type = l_case
         self.air_snow = None
@@ -41,6 +43,20 @@ class SnowRadar:
         self.compressed = False
         radar_dat = matfunc.unified_loader(self)
         self._populate_instanceattr(radar_dat)
+        self.epw = None # Equiv pulse width 
+        self.n2n = None # Null to Null space
+        
+    def get_surface(self, smooth=True):
+        '''
+        Simple surface tracker based on maximum
+        This should be refined and is largely a place holder 
+        '''
+        if self.surface is not None:
+            print('Replacing original surface')
+        
+        self.surf_bin = np.argmax(self.data_radar, axis=0)
+        self.surface = np.interp(self.surf_bin,np.arange(0,len(self.time_fast)),self.time_fast)
+        
         
     def as_dict(self):
         '''generic method, to be extended by OIB and AWI subclasses'''
@@ -164,7 +180,7 @@ class SnowRadar:
         spectral_win = signal.hann(n_band_points)
     
         # Frequency domain processing
-        #JK: Need to be careful here, f becomes an array if bandwidth is as well.
+        # JK: Need to be careful here, f becomes an array if bandwidth is as well.
         # Change it to use f.shape?
         freq_domain_signal = np.zeros(len(f)) 
         freq_domain_signal[np.abs(f) < half_bandwidth] = spectral_win
@@ -190,8 +206,24 @@ class SnowRadar:
         null_2_width = 2 * np.mean(closest_peaks[0:1])
         null_2_time = null_2_width * time_step
         self.n2n = null_2_time * C
-
-
+    
+    def decompress_data(self):
+        print('Decompressing data...') 
+        Nz = self.elv_corr.max()
+        Nt = Nz + len(self.trunc_bins)
+        self.elevation = self.elevation - self.elv_corr * self.dfr
+        self.surface = self.surface - self.elv_corr * self.dft
+        self.data_radar = np.pad(self.data_radar, [(Nz,0 ), (0, 0)], 'constant', constant_values=(np.nan))
+         
+        for rline in np.arange(0,self.data_radar.shape[1]):
+            self.data_radar[:, rline] = np.roll(self.data_radar[:, rline], -self.elv_corr[rline])
+        if len(self.time_fast) == len(self.trunc_bins):
+            t0 = self.time_fast[0] - Nz*self.dft
+        else:
+            t0 =  self.time_fast[self.trunc_bins[0]] - Nz * self.dft
+            self.time_fast = t0 + self.dft*np.arange(0, Nt-1)
+        print('finished')
+    
     def elevation_compensation(self, perm_ice=3.15):
         '''
         Ported by Josh King from CRESIS elevation_compensation.m by John Paden
@@ -212,24 +244,26 @@ class SnowRadar:
             or factory methods (https://stackoverflow.com/a/682545)
             for the different inputs (AWI, OIB, CRESIS, NSIDC, etc.)
         '''
+        #self.data_radar = np.flip(self.data_radar, 0)
+        
         # Quick check for existance of non-null 'surface' data attribute 
         if self.surface is None:
             print('Elevation compensation not possible without surface estimate')
             return
 
-        #Mikeb: placeholders for commonly-repeated operations
+        # Mikeb: placeholders for commonly-repeated operations
         half_speed_of_light = C * 0.5 
-        half_c_through_ice = half_speed_of_light / np.sqrt(perm_ice) 
+        half_c_in_ice = half_speed_of_light / np.sqrt(perm_ice) 
         time_fast_size = len(self.time_fast)        # TODO: better name for this?
 
         max_elev = self.elevation.max()
         min_elev = np.min(
             self.elevation - self.surface * half_speed_of_light -
-            (self.time_fast[-1] - self.surface) * half_c_through_ice
+            (self.time_fast[-1] - self.surface) * half_c_in_ice
         )
 
         # Create an elevation axis based on the bin timing and an assumption of permittivity
-        delta_range = self.dft * half_c_through_ice   
+        delta_range = self.dft * half_c_in_ice   
         dt_air = delta_range / half_speed_of_light  # TODO: better name for this?
         dt_ice = self.dft                           # TODO: Is this correct?
         elev_axis = np.arange(max_elev, min_elev, -delta_range)
@@ -251,8 +285,10 @@ class SnowRadar:
         def create_compensation(row_idx):
             ''' 
             Bad function name because I don't know what it's doing
-
+            
             Can probably be refactored
+            
+            JK: This function finds the ice interface and scales the time array depending on medium
             '''
             e_val = self.elevation[row_idx]
             s_val = self.surface[row_idx]
@@ -262,7 +298,7 @@ class SnowRadar:
             new_time = (time0 + dt_air * np.arange(0, last_air_idx - 1))
             if last_air_idx < elev_axis.shape[0]:
                 first_ice_idx = last_air_idx + 1
-                time0 = s_val + (surf_elev - elev_axis[first_ice_idx]) / half_c_through_ice
+                time0 = s_val + (surf_elev - elev_axis[first_ice_idx]) / half_c_in_ice
                 new_time = np.concatenate((
                     new_time, 
                     time0 + dt_ice * (
@@ -303,7 +339,7 @@ class SnowRadar:
         return elev_axis
 
 
-# The OIB snow radar (2-8 GHz) data comes as matlab v5
+# The OIB snow radar (2-8 GHz) data comes as matlab v5 or v7
 # We use a bit of hacky magic to fit it into numpy arrays from dicts
 # TODO: Check file type where NSIDC = NC and CRESIS = MAT
 class OIB(SnowRadar):
