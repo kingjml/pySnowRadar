@@ -50,13 +50,11 @@ class SnowRadar:
         '''
         Simple surface tracker based on maximum
         This should be refined and is largely a place holder 
+        
         '''
-        if self.surface is not None:
-            print('Replacing original surface')
-        
-        self.surf_bin = np.argmax(self.data_radar, axis=0)
-        self.surface = np.interp(self.surf_bin,np.arange(0,len(self.time_fast)),self.time_fast)
-        
+        surf_bin = np.argmax(self.data_radar, axis=0)
+        surf_time = np.interp(surf_bin,np.arange(0,len(self.time_fast)),self.time_fast)
+        return surf_time, surf_bin        
         
     def as_dict(self):
         '''generic method, to be extended by OIB and AWI subclasses'''
@@ -138,15 +136,23 @@ class SnowRadar:
             # Sometimes there are elev corrections available in
             # the matfile
             try:
-                self.elv_corr = radar_dat['Elevation_Correction']
+                self.elv_corr = radar_dat['Elevation_Correction'].astype(np.int64)
             except KeyError:
                 pass
             # Check if the FMCW echograms are compressed in the matfile
             try:
-                self.trunc_bins = radar_dat['Truncate_Bins']
+                self.trunc_bins = radar_dat['Truncate_Bins'].astype(np.int64)
                 self.compressed = True
             except KeyError:
-                pass       
+                pass
+            
+            # Check if the file has previously been elevation corrected
+            # TODO: check type of output
+            try:
+                self.elev_corrected = radar_dat['param_records']['get_heights']['elev_correction']
+            except KeyError:
+                pass
+            
         # Geospatial boundary box
         self.extent = np.hstack((
             lons.min(), lats.min(),
@@ -208,6 +214,9 @@ class SnowRadar:
         self.n2n = null_2_time * C
     
     def decompress_data(self):
+        '''
+        Ported by Josh King from CRESIS uncompress_echogram.m by John Paden
+        '''
         print('Decompressing data...') 
         Nz = self.elv_corr.max()
         Nt = Nz + len(self.trunc_bins)
@@ -243,9 +252,7 @@ class SnowRadar:
             MikeB: might be worth investigating use of AbstractBaseClasses/Methods
             or factory methods (https://stackoverflow.com/a/682545)
             for the different inputs (AWI, OIB, CRESIS, NSIDC, etc.)
-        '''
-        #self.data_radar = np.flip(self.data_radar, 0)
-        
+        '''        
         # Quick check for existance of non-null 'surface' data attribute 
         if self.surface is None:
             print('Elevation compensation not possible without surface estimate')
@@ -273,6 +280,7 @@ class SnowRadar:
         # This will be our new compensated radar data array
         radar_comp = np.concatenate((
             self.data_radar, 
+            #np.full((zero_pad_len, self.data_radar.shape[1]), np.nan)),
             np.zeros((zero_pad_len, self.data_radar.shape[1]))),
             axis=0
         )
