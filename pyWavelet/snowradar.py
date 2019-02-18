@@ -22,8 +22,13 @@ class SnowRadar:
 
         self.air_snow = None
         self.snow_ice = None
-        self.epw = None #equiv_pulse_width 
-        self.n2n = None #Null to Null space
+        self.epw = None # equiv_pulse_width 
+        self.n2n = None # Null to Null space
+        # we try to populate these in _populate_instanceattr()
+        self.surface = None
+        self.elv_corr = None
+        # becomes True if FMCW echograms are compressed from source
+        self.compressed = False 
         
     def as_dict(self):
         '''generic method, to be extended by OIB and AWI subclasses'''
@@ -32,6 +37,87 @@ class SnowRadar:
             'fpath': self.file_path,
             'l_case': self.load_type
         }
+
+    def _populate_instanceattr(self, radar_dat):
+        '''
+        This is part of the unified loader mechanism that automatically accounts
+        for the differences between SnowRadar source datasets
+        
+        Currently-supported source datasets:
+        Operation IceBridge         (2016): Matlab v5 HDF
+        Operation IceBridge         (2017): Matlab v7 HDF
+        Alfred Wegener Institute    (2017): Matlab v7 HDF
+
+        '''
+        f0 = radar_dat['param_records']['radar']['wfs']['f0']
+        f1 = radar_dat['param_records']['radar']['wfs']['f1']
+        fmult = radar_dat['param_records']['radar']['wfs']['fmult']
+        if self.data_type == 'AWI_MAT':
+            # AWI mat files store 2 values for f0, f1 and fmult
+            # Here we force the script to use the 2nd value
+            f0 = float(f0[1])
+            f1 = float(f1[1])
+            fmult = float(fmult[1])
+        lats = radar_dat['Latitude']
+        lons = radar_dat['Longitude']
+        gps_times = radar_dat['GPS_time']
+        utc_times = [timefunc.utcleap(gps) for gps in gps_times]
+        self.file_epoch = utc_times
+        fast_times = radar_dat['Time']
+        self.bandwidth = np.abs((f1 - f0) * fmult)
+        self.dft = fast_times[1] - fast_times[0] # delta fast time
+        self.dfr = (self.dft * 0.5) * C # delta fast time range
+        # load just the metadata concerning timing
+        if self.load_type == 'meta':
+            time_start = gps_times.min()
+            time_end = gps_times.max()
+            self.time_gps = np.asarray((time_start, time_end))
+            self.time_utc = np.asarray((
+                timefunc.utcleap(time_start),
+                timefunc.utcleap(time_end)
+            ))
+        # load the full dataset including as much as possible
+        elif self.load_type == 'full':
+            data_radar = radar_dat['Data']
+            elevation = radar_dat['Elevation']
+            if data_radar.shape[0] == elevation.shape[0]:
+                self.data_radar = np.transpose(data_radar)
+            else:
+                self.data_radar = data_radar
+            self.elevation = elevation
+            self.time_gps = gps_times
+            self.time_utc = np.asarray([
+                timefunc.utcleap(t) for t in self.time_gps
+            ])
+            self.time_fast = fast_times
+            self.lat = lats
+            self.lon = lons
+            self.roll = radar_dat['Roll']
+            self.pitch = radar_dat['Pitch']     
+            # Sometimes the surface is recorded in the matfile
+            try:
+                self.surface = radar_dat['Surface']
+            except KeyError:
+                print('Surface unavailable')
+            # Sometimes there are elev corrections available in
+            # the matfile
+            try:
+                self.elv_corr = radar_dat['Elevation_Correction']
+            except KeyError:
+                pass
+            # Check if the FMCW echograms are compressed in the matfile
+            try:
+                self.trunc_bins = radar_dat['Truncate_Bins']
+                self.compressed = True
+            except KeyError:
+                pass
+        # Geospatial boundary box
+        self.extent = np.hstack((
+            lons.min(), lats.min(),
+            lons.max(), lats.max()
+        )).ravel()
+        self.poly = box(*self.extent)
+
 
     def calcpulsewidth(self, oversample_num=1000, num_nyquist_ts=100):
         '''
@@ -204,80 +290,8 @@ class OIB(SnowRadar):
     def __init__(self, file_path, l_case='meta'):
         super().__init__(file_path, l_case)
         self.data_type = 'OIB_MAT'
-
         radar_dat = matfunc.unified_loader(self)
-        
-        self.bandwidth = np.abs(
-            (
-                radar_dat['param_records']['radar']['wfs']['f1'] -
-                radar_dat['param_records']['radar']['wfs']['f0']
-            ) * 
-            radar_dat['param_records']['radar']['wfs']['fmult']
-        )
-        self.dft = radar_dat['Time'][1] - radar_dat['Time'][0]  #delta fast time
-        self.dfr = (self.dft / 2) * C #delta fast time range
-
-        lats = radar_dat['Latitude']
-        lons = radar_dat['Longitude']
-        
-        if l_case == 'meta':
-            time_start = radar_dat['GPS_time'].min()
-            time_end = radar_dat['GPS_time'].max()
-            self.time_gps = np.asarray((time_start, time_end))
-            self.time_utc = np.asarray((
-                timefunc.utcleap(time_start),
-                timefunc.utcleap(time_end)
-            ))
-
-        elif l_case == 'full':
-            self.time_gps = radar_dat['GPS_time']
-            self.time_utc = np.asarray([
-                timefunc.utcleap(t) for t in self.time_gps
-            ])
-    
-            self.time_fast = radar_dat['Time']
-            self.lat = lats
-            self.lon = lons
-            self.elevation = radar_dat['Elevation']
-            self.roll = radar_dat['Roll']
-            self.pitch = radar_dat['Pitch']
-            
-            self.data_radar = radar_dat['Data']
-            # Make sure the radar data is oriented as expected
-            # with elevation bins on Y axis
-            if (self.data_radar.shape[0]==self.elevation.shape[0]):
-                 self.data_radar = np.transpose(self.data_radar)
-            
-            if 'Surface' in radar_dat:
-                self.surface = radar_dat['Surface']
-            else:
-                print('Surface unavailable')
-                self.surface = None
-                
-            # Looks like there are correcltions available for some files
-            # If this field is available its an easy fix
-            if 'Elevation_Correction' in radar_dat:
-                self.elv_corr = radar_dat['Elevation_Correction']
-            else:
-                self.elv_corr = None
-            
-            # Check if the FMCW echograms are compressed at source
-            if 'Truncate_Bins' in radar_dat:
-                self.compressed = True
-                self.trunc_bins = radar_dat['Truncate_Bins']
-            else:
-                self.compressed = False
-
-        gps_times = radar_dat['GPS_time']
-        utc_times = [timefunc.utcleap(gps) for gps in gps_times]
-        self.file_epoch = utc_times
-        
-        self.extent = np.hstack((
-            lons.min(), lats.min(),
-            lons.max(), lats.max()
-        )).ravel()      
-
-        self.poly = box(*self.extent)
+        super()._populate_instanceattr(radar_dat)
 
     def as_dict(self):
         '''extend superclass as_dict method to include more OIB-relevant information'''
@@ -293,60 +307,14 @@ class OIB(SnowRadar):
         return f'{self.data_type} Datafile: {self.file_name}'   
 
 
-#The AWI snow radar data comes as matlab v7 so its closer to a HDF file
-#Use h5py to read and process it
+# The AWI snow radar data comes as matlab v7 so its closer to a HDF file
+# Use h5py to read and process it
 class AWI(SnowRadar):
     def __init__(self, file_path, l_case='meta'):
         super().__init__(file_path, l_case)
         self.data_type = 'AWI_MAT'
-
         radar_dat = matfunc.unified_loader(self)
-        
-        #Not sure why but there are two records for f0 and f1. The first one is only a 2Ghz range?
-        f0 = radar_dat['param_records']['radar']['wfs']['f0'][1]
-        f1 = radar_dat['param_records']['radar']['wfs']['f1'][1]
-        fmult = radar_dat['param_records']['radar']['wfs']['fmult'][1]
-        self.bandwidth = np.float64(np.abs((f1 - f0) * fmult)) #TODO: The scalar cast is a hack
-        
-        self.dft = radar_dat['Time'][1] - radar_dat['Time'][0]  #delta fast time
-        self.dfr = (self.dft / 2) * C #delta fast time range
-
-        lats = radar_dat['Latitude']
-        lons = radar_dat['Longitude']
-
-        if l_case == 'meta':
-            time_start = radar_dat['GPS_time'].min()
-            time_end = radar_dat['GPS_time'].max()
-            self.time_gps = np.asarray((time_start, time_end))
-            self.time_utc = np.asarray((
-                timefunc.utcleap(time_start),
-                timefunc.utcleap(time_end)
-            ))
-        
-        elif l_case=='full':
-            self.time_gps = radar_dat['GPS_time']
-            self.time_utc = np.asarray([
-                timefunc.utcleap(t) for t in self.time_gps
-            ])
-            self.data_radar = np.transpose(radar_dat['Data'])
-            self.time_fast = radar_dat['Time']
-            self.lat = lats
-            self.lon = lons
-            self.elevation = radar_dat['Elevation']
-            
-            # TODO: If there is not a rough surface available
-            # generate one quickly for the elevation correction
-            if 'Surface' in radar_dat:
-                self.surface = radar_dat['Surface']
-            else:
-                print('Surface unavailable')
-                self.surface = None
-
-        self.extent = np.hstack((
-            lons.min(), lats.min(),
-            lons.max(), lats.max()
-        )).ravel()  
-        self.poly = box(*self.extent)
+        super()._populate_instanceattr(radar_dat)
         
     def as_dict(self):
         '''extend superclass as_dict method to include more AWI-relevant information'''

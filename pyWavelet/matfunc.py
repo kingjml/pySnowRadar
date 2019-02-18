@@ -72,16 +72,19 @@ def h5py_to_dict(hdf5_obj, exclude_names=None):
     reason
     '''
     data = {}
-    # Note that exclude_names isn't really used recursively
-    # so it only operates at the root level
+    # Note that exclude_names can be tricky since it
+    # is applied recursively when it hits a h5py.Group
     if not type(exclude_names) == list:
         exclude_names = [exclude_names]
     for k, v in hdf5_obj.items():
         if k in exclude_names:
             continue
         if isinstance(v, h5py.Dataset):
-            # strings are encoded as uint16 for whatever reason
+            # some important strings are encoded as uint16 for whatever reason
             # thankfully there is a unique HDF attribute that flags encoded values
+            #
+            # Note: this doesn't decode all the strings, but it does work for the 
+            # data we need
             must_decode = 'MATLAB_int_decode' in list(v.attrs)
             if must_decode:
                 # converts uint16 to Byte and decodes to string
@@ -104,5 +107,6 @@ def h5py_to_dict(hdf5_obj, exclude_names=None):
                     except ValueError: # keep NxN arrays the way they are
                         data[k] = np.squeeze(v.value)
         elif isinstance(v, h5py.Group):
+            # recursively step through h5py.Groups to get at the datasets
             data[k] = h5py_to_dict(v)
     return data
