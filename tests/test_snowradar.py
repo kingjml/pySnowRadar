@@ -33,13 +33,17 @@ def awi_full():
 def awi_meta():
     return AWI(str(AWI_TEST_FILE), l_case='meta')
 
+def test_file_missing():
+    with pytest.raises(FileNotFoundError):
+        fake_file = SnowRadar('this-file-definitely-does-not-exist-on-anyones-computer-probably.jpeg.gif.tif.ogg.mp4', l_case='full')
+
 def test_awi_str_repr(awi_full, awi_meta):
-    expected = f'AWI Datafile: {Path(AWI_TEST_FILE).name}'
+    expected = f'AWI_MAT Datafile: {Path(AWI_TEST_FILE).name}'
     assert str(awi_full) == expected
     assert str(awi_meta) == expected
 
 def test_oib_str_repr(oib_full, oib_meta):
-    expected = f'OIB Datafile: {Path(OIB_TEST_FILE).name}'
+    expected = f'OIB_MAT Datafile: {Path(OIB_TEST_FILE).name}'
     assert str(oib_full) == expected
     assert str(oib_meta) == expected
 
