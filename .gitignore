@@ -165,4 +165,4 @@ venv.bak/
 *.h5
 *.h5.xml
 *.mat
-
+*.nc
