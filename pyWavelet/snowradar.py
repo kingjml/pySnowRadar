@@ -102,7 +102,7 @@ class SnowRadar:
             utc_times = radar_dat['UTC_time'] 
         # OIB/AWI matfiles do not!
         except KeyError:
-            utc_times = [timefunc.utcleap(gps) for gps in gps_times]
+            utc_times = np.asarray([timefunc.utcleap(gps) for gps in gps_times])
         self.file_epoch = utc_times
         fast_times = radar_dat['Time']
         self.bandwidth = np.abs((f1 - f0) * fmult)
