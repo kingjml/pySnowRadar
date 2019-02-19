@@ -76,12 +76,15 @@ class SnowRadar:
 
         '''
         # scrape some metadata in order to decide how to treat the sourcefile
-        radar_name_code = radar_dat['param_records']['radar_name']
-        self.data_type = CRESIS_RAW_FILE_LUT.get(radar_name_code, 'Unknown')
-        season = radar_dat['param_records']['season_name']
-        mission = radar_dat['param_records']['cmd']['mission_names']
-        day, segment = radar_dat['param_records']['day_seg'].split('_')
-        gps_src = radar_dat['param_records']['gps_source']
+        self.radar_name_code = radar_dat['param_records']['radar_name']
+        if not self.file_name.endswith('.nc'):
+            self.data_type = CRESIS_RAW_FILE_LUT.get(self.radar_name_code, 'Unknown')
+        else:
+            self.data_type = 'NSIDC_NC'
+        self.season = radar_dat['param_records']['season_name']
+        self.mission = radar_dat['param_records']['cmd']['mission_names']
+        self.day, self.segment = radar_dat['param_records']['day_seg'].split('_')
+        self.gps_source = radar_dat['param_records']['gps_source']
 
         f0 = radar_dat['param_records']['radar']['wfs']['f0']
         f1 = radar_dat['param_records']['radar']['wfs']['f1']
@@ -95,7 +98,12 @@ class SnowRadar:
         lats = radar_dat['Latitude']
         lons = radar_dat['Longitude']
         gps_times = radar_dat['GPS_time']
-        utc_times = [timefunc.utcleap(gps) for gps in gps_times]
+        # NSIDC netCDF files store UTC-time already
+        try:
+            utc_times = radar_dat['UTC_time'] 
+        # OIB/AWI matfiles do not!
+        except KeyError:
+            utc_times = [timefunc.utcleap(gps) for gps in gps_times]
         self.file_epoch = utc_times
         fast_times = radar_dat['Time']
         self.bandwidth = np.abs((f1 - f0) * fmult)
@@ -120,9 +128,7 @@ class SnowRadar:
                 self.data_radar = data_radar
             self.elevation = elevation
             self.time_gps = gps_times
-            self.time_utc = np.asarray([
-                timefunc.utcleap(t) for t in self.time_gps
-            ])
+            self.time_utc = utc_times
             self.time_fast = fast_times
             self.lat = lats
             self.lon = lons
@@ -337,11 +343,18 @@ class SnowRadar:
         return elev_axis
 
     def plot_quicklook(self, scale_factor=4):
-        with np.errstate(divide='ignore'):
-            radar_sub = 20 * np.log10(self.data_radar)
-        fig, ax = plt.subplots(figsize=(12,10))
+        with np.errstate(divide='ignore', invalid='ignore'):
+            # NSIDC datasets are already in log-scale
+            if self.data_type == 'NSIDC_NC':
+                radar_sub = self.data_radar
+            else:
+                radar_sub = 10 * np.log10(self.data_radar)
+        fig, ax = plt.subplots(figsize=(9,7))
         im = ax.imshow(radar_sub, cmap='gist_gray')
-        ax.set_title(self.file_name, fontdict={'size':'x-large'})
+        ax.set_title(
+            f'{self.file_name} ({self.data_type})',
+            fontdict={'size':'x-large'}
+        )
         ax.set_aspect('auto')
         fig.colorbar(im, ax=ax)
         fig.tight_layout()
