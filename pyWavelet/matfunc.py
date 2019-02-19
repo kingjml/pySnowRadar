@@ -1,9 +1,10 @@
 '''
-Functions to handle MATLAB data formats
+Functions to handle MATLAB and NetCDF data formats
 MAT file reader functions from here: https://stackoverflow.com/questions/7008608/scipy-io-loadmat-nested-structures-i-e-dictionaries
 '''
 import scipy.io as spio
 import h5py
+from dateutil.parser import parse
 import numpy as np
 
 def loadmat(filename):
@@ -41,14 +42,19 @@ def _todict(matobj):
 
 
 def unified_loader(sr_obj):
-    '''Loads SnowRadar MAT files depending on source'''
+    '''Loads SnowRadar data files depending on filetype'''
     # The versions of the OIB MAT file formats seem to be inconsistent
-    # This tries the two different approaches to read to find one that works
+    # This tries different approaches to read to find one that works
     try:
         radar_dat = loadmat(sr_obj.file_path)
+    # NotImplementedError raised by spio.loadmat for matlab v7 files
     except NotImplementedError:
-        with h5py.File(sr_obj.file_path, 'r') as in_h5:
-            radar_dat = h5py_to_dict(in_h5, exclude_names='#refs#')
+        with h5py.File(sr_obj.file_path, 'r') as in_mat:
+            radar_dat = h5py_to_dict(in_mat, exclude_names='#refs#')
+    # ValueError is raised by spio.loadmat for NSIDC netCDF files
+    except ValueError:
+        with h5py.File(sr_obj.file_path, 'r') as in_nc:
+            radar_dat = nc_to_dict(in_nc)
     except:
         raise IOError('Could not read SnowRadar file: %s' % sr_obj.file_name)
     return radar_dat
@@ -78,9 +84,17 @@ def h5py_to_dict(hdf5_obj, exclude_names=None):
             # data we need
             must_decode = 'MATLAB_int_decode' in list(v.attrs)
             if must_decode:
-                # converts uint16 to Byte and decodes to string
-                # https://stackoverflow.com/a/45593385
-                data[k] = v.value.tobytes()[::2].decode()
+                # treat uint8 differently from uint16
+                if v.value.dtype == 'uint16':
+                    # converts uint16 to Byte and decodes to string
+                    # https://stackoverflow.com/a/45593385
+                    data[k] = v.value.tobytes()[::2].decode()
+                elif v.value.dtype == 'uint8':
+                    # converts 1x1 uint8 array to single bool value
+                    data[k] = v.value.astype(bool).item()
+                # empty attribute stored as 2-element array of type uint64
+                elif v.value.dtype == 'uint64' and v.value.shape == (2,):
+                    data[k] == None
             else:
                 # need to convert HDF object references into actual data
                 dtype = v.value.dtype
@@ -101,3 +115,57 @@ def h5py_to_dict(hdf5_obj, exclude_names=None):
             # recursively step through h5py.Groups to get at the datasets
             data[k] = h5py_to_dict(v)
     return data
+
+# because the NC structure doesn't match the Matlab structure
+# and we've already written all the code to match the Matlab structure...
+NC_VAR_NAME_SWAP_LUT = {
+    'amplitude': 'Data',
+    'lat': 'Latitude',
+    'lon': 'Longitude',
+    'roll': 'Roll',
+    'pitch': 'Pitch',
+    'fasttime': 'Time',
+    'altitude': 'Elevation', # the NSIDC user guide lists elevation as 'alt'
+    'alt': 'Elevation',      # but the downloaded NC file uses 'altitude'
+    'time': 'UTC_Time'
+}
+
+def nc_to_dict(hdf5_obj):
+    data = {}
+    # iterate through the netCDF, trying to convert to dict
+    # in the same format as the Matlab dicts
+    for k, v in hdf5_obj.items():
+        k = NC_VAR_NAME_SWAP_LUT.get(k, k)
+        k_list = [s.split('(')[0].split('{')[0] for s in k.split('.')]
+        if v.dtype == '<S1':
+            try:
+                val = ''.join(v.value.flatten().astype('U'))
+            except TypeError:
+                val = None
+        elif v.dtype == 'uint16':
+            val = v.value.astype(bool).item()
+        else:
+            val = np.squeeze(v.value)
+        nc_set_nested_value(data, k_list, val)
+    # also grab the GPS times from the netCDF header
+    min_time = parse(
+        hdf5_obj.attrs['min_time_bound'].astype('U').rstrip(' GPS')
+    ).timestamp()
+    max_time = parse(
+        hdf5_obj.attrs['max_time_bound'].astype('U').rstrip(' GPS')
+    ).timestamp()
+    data['GPS_time'] = np.array([min_time, max_time], dtype=float)
+    return data
+
+def nc_set_nested_value(target_dict, keys, value):
+    '''
+    Given a target dictionary, insert a nested dictionary 
+    keyed to the list of keys, with the deepest key holding
+    the passed value
+
+    https://stackoverflow.com/a/21298015
+    '''
+    deepest_key = keys.pop()
+    for key in keys:
+        target_dict = target_dict.setdefault(key, {})
+    target_dict.setdefault(deepest_key, value)

@@ -2,6 +2,7 @@ import os
 import h5py
 from . import matfunc
 from . import timefunc
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
 from shapely.geometry import box
@@ -12,10 +13,10 @@ QC_ROLL_MAX = 5 # Max ATM roll in deg
 
 # https://ops.cresis.ku.edu/wiki/index.php/Raw_File_Guide
 CRESIS_RAW_FILE_LUT = {
-    'snow': 'OIB_MAT',
-    'snow2': 'OIB_MAT',
-    'snow3': 'OIB_MAT',
-    'snow4': 'OIB_MAT',
+    'snow': 'OIB_MAT', 'kuband': 'OIB_MAT',
+    'snow2': 'OIB_MAT', 'kuband2': 'OIB_MAT',
+    'snow3': 'OIB_MAT', 'kuband3': 'OIB_MAT',
+    'snow4': 'OIB_MAT', 'kuband4': 'OIB_MAT',
     'snow5': 'AWI_MAT',
     'snow8': 'OIB_MAT',
     'snow9': 'OIB_MAT',
@@ -43,8 +44,6 @@ class SnowRadar:
         self.compressed = False
         radar_dat = matfunc.unified_loader(self)
         self._populate_instanceattr(radar_dat)
-        self.epw = None # Equiv pulse width 
-        self.n2n = None # Null to Null space
         
     def get_surface(self, smooth=True):
         '''
@@ -76,12 +75,15 @@ class SnowRadar:
 
         '''
         # scrape some metadata in order to decide how to treat the sourcefile
-        radar_name_code = radar_dat['param_records']['radar_name']
-        self.data_type = CRESIS_RAW_FILE_LUT.get(radar_name_code, 'Unknown')
-        season = radar_dat['param_records']['season_name']
-        mission = radar_dat['param_records']['cmd']['mission_names']
-        day, segment = radar_dat['param_records']['day_seg'].split('_')
-        gps_src = radar_dat['param_records']['gps_source']
+        self.radar_name_code = radar_dat['param_records']['radar_name']
+        if not self.file_name.endswith('.nc'):
+            self.data_type = CRESIS_RAW_FILE_LUT.get(self.radar_name_code, 'Unknown')
+        else:
+            self.data_type = 'NSIDC_NC'
+        self.season = radar_dat['param_records']['season_name']
+        self.mission = radar_dat['param_records']['cmd']['mission_names']
+        self.day, self.segment = radar_dat['param_records']['day_seg'].split('_')
+        self.gps_source = radar_dat['param_records']['gps_source']
 
         f0 = radar_dat['param_records']['radar']['wfs']['f0']
         f1 = radar_dat['param_records']['radar']['wfs']['f1']
@@ -95,7 +97,12 @@ class SnowRadar:
         lats = radar_dat['Latitude']
         lons = radar_dat['Longitude']
         gps_times = radar_dat['GPS_time']
-        utc_times = [timefunc.utcleap(gps) for gps in gps_times]
+        # NSIDC netCDF files store UTC-time already
+        try:
+            utc_times = radar_dat['UTC_time'] 
+        # OIB/AWI matfiles do not!
+        except KeyError:
+            utc_times = [timefunc.utcleap(gps) for gps in gps_times]
         self.file_epoch = utc_times
         fast_times = radar_dat['Time']
         self.bandwidth = np.abs((f1 - f0) * fmult)
@@ -120,14 +127,12 @@ class SnowRadar:
                 self.data_radar = data_radar
             self.elevation = elevation
             self.time_gps = gps_times
-            self.time_utc = np.asarray([
-                timefunc.utcleap(t) for t in self.time_gps
-            ])
+            self.time_utc = utc_times
             self.time_fast = fast_times
             self.lat = lats
             self.lon = lons
             self.roll = radar_dat['Roll']
-            self.pitch = radar_dat['Pitch']     
+            self.pitch = radar_dat['Pitch']
             # Sometimes the surface is recorded in the matfile
             try:
                 self.surface = radar_dat['Surface']
@@ -346,6 +351,27 @@ class SnowRadar:
         self.surface_elev = self.elevation - self.surface * half_speed_of_light
         return elev_axis
 
+    def plot_quicklook(self, scale_factor=4):
+        with np.errstate(divide='ignore', invalid='ignore'):
+            # NSIDC datasets are already in log-scale
+            if self.data_type == 'NSIDC_NC':
+                radar_sub = self.data_radar
+            else:
+                radar_sub = 10 * np.log10(self.data_radar)
+        fig, ax = plt.subplots(figsize=(9,7))
+        im = ax.imshow(radar_sub, cmap='gist_gray')
+        ax.set_title(
+            f'{self.file_name} ({self.data_type})',
+            fontdict={'size':'x-large'}
+        )
+        ax.set_aspect('auto')
+        fig.colorbar(im, ax=ax)
+        fig.tight_layout()
+        plt.show()
+
+    def __str__(self):
+        return f'{self.data_type} Datafile: {self.file_name}'
+
 
 # The OIB snow radar (2-8 GHz) data comes as matlab v5 or v7
 # We use a bit of hacky magic to fit it into numpy arrays from dicts
@@ -367,9 +393,6 @@ class OIB(SnowRadar):
         })
         return result
 
-    def __str__(self):
-        return f'{self.data_type} Datafile: {self.file_name}'
-
 
 # The AWI snow radar data comes as matlab v7 so its closer to a HDF file
 # Use h5py to read and process it
@@ -389,6 +412,3 @@ class AWI(SnowRadar):
             'poly': self.poly.wkt
         })
         return result
-
-    def __str__(self):
-        return f'{self.data_type} Datafile: {self.file_name}'
