@@ -53,7 +53,7 @@ class SnowRadar:
         '''
         surf_bin = np.argmax(self.data_radar, axis=0)
         surf_time = np.interp(surf_bin,np.arange(0,len(self.time_fast)),self.time_fast)
-        return surf_time, surf_bin        
+        return surf_time, surf_bin
         
     def as_dict(self):
         '''generic method, to be extended by OIB and AWI subclasses'''
@@ -138,25 +138,26 @@ class SnowRadar:
                 self.surface = radar_dat['Surface']
             except KeyError:
                 print('Surface unavailable')
+                self.surface = None
             # Sometimes there are elev corrections available in
             # the matfile
             try:
                 self.elv_corr = radar_dat['Elevation_Correction'].astype(np.int64)
             except KeyError:
-                pass
+                self.elv_corr = None
             # Check if the FMCW echograms are compressed in the matfile
             try:
                 self.trunc_bins = radar_dat['Truncate_Bins'].astype(np.int64)
                 self.compressed = True
             except KeyError:
-                pass
+                self.trunc_bins = None
             
             # Check if the file has previously been elevation corrected
             # TODO: check type of output
             try:
                 self.elev_corrected = radar_dat['param_records']['get_heights']['elev_correction']
             except KeyError:
-                pass
+                self.elev_corrected = None
             
         # Geospatial boundary box
         self.extent = np.hstack((
