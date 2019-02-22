@@ -44,24 +44,6 @@ class SnowRadar:
         self.compressed = False
         radar_dat = matfunc.unified_loader(self)
         self._populate_instanceattr(radar_dat)
-        
-    def get_surface(self, smooth=True):
-        '''
-        Simple surface tracker based on maximum
-        This should be refined and is largely a place holder 
-        
-        '''
-        surf_bin = np.argmax(self.data_radar, axis=0)
-        surf_time = np.interp(surf_bin,np.arange(0,len(self.time_fast)),self.time_fast)
-        return surf_time, surf_bin        
-        
-    def as_dict(self):
-        '''generic method, to be extended by OIB and AWI subclasses'''
-        return {
-            'fname': self.file_name,
-            'fpath': self.file_path,
-            'l_case': self.load_type
-        }
 
     def _populate_instanceattr(self, radar_dat):
         '''
@@ -137,25 +119,26 @@ class SnowRadar:
             try:
                 self.surface = radar_dat['Surface']
             except KeyError:
-                print('Surface unavailable')
-            # Sometimes there are elev corrections available in
-            # the matfile
+                self.surface = None
+            # Sometimes there are elev corrections available
             try:
                 self.elv_corr = radar_dat['Elevation_Correction'].astype(np.int64)
             except KeyError:
+                self.elv_corr = None
                 pass
             # Check if the FMCW echograms are compressed in the matfile
             try:
                 self.trunc_bins = radar_dat['Truncate_Bins'].astype(np.int64)
-                self.compressed = True
             except KeyError:
+                self.trunc_bins = None
                 pass
             
             # Check if the file has previously been elevation corrected
             # TODO: check type of output
             try:
-                self.elev_corrected = radar_dat['param_records']['get_heights']['elev_correction']
+                self.elev_corrected = np.any(radar_dat['param_records']['get_heights']['elev_correction'])
             except KeyError:
+                self.elev_corrected = False
                 pass
             
         # Geospatial boundary box
@@ -165,7 +148,40 @@ class SnowRadar:
         )).ravel()
         self.poly = box(*self.extent)
 
-
+    def get_surface(self, smooth=True):
+        '''
+        Simple surface tracker based on maximum
+        This should be refined and is largely a place holder 
+        TODO: surf_time is broken unless the time axis is interpolated
+        
+        '''
+        surf_bin = np.nanargmax(self.data_radar, axis=0)
+        surf_time = np.interp(surf_bin,np.arange(0,len(self.time_fast)),self.time_fast)
+        return surf_bin , surf_time
+    
+    def get_bounds(self, m_above = None, m_below = 1):
+        '''
+        Get bin numbers where there is valid data (non-nan)
+        A threshold can be supplied 
+        
+        '''
+        if m_above:
+            null_lower = self.surf_bin.max()+(m_below/self.dfr).astype(int)
+            null_upper = self.surf_bin.min()-(m_above/self.dfr).astype(int)
+        else:
+            null_space = np.argwhere(np.isnan(self.data_radar))[:,0]
+            null_upper = null_space[null_space<self.surf_bin.min()].min()
+            null_lower = null_space[null_space>self.surf_bin.max()].max()
+        return null_lower, null_upper
+        
+    def as_dict(self):
+        '''generic method, to be extended by OIB and AWI subclasses'''
+        return {
+            'fname': self.file_name,
+            'fpath': self.file_path,
+            'l_case': self.load_type
+        }
+    
     def calcpulsewidth(self, oversample_num=1000, num_nyquist_ts=100):
         '''
         bandwidth: radar bandwidth in hz
@@ -291,9 +307,9 @@ class SnowRadar:
         )
 
         # Create the corrections to be applied
-        d_range = max_elev - self.elevation
-        d_time = d_range / half_speed_of_light
-        d_bins = np.round(d_time / dt_ice)
+        #d_range = max_elev - self.elevation
+        #d_time = d_range / half_speed_of_light
+        #d_bins = np.round(d_time / dt_ice)
 
         def create_compensation(row_idx):
             ''' 
@@ -335,23 +351,14 @@ class SnowRadar:
                 self.time_fast,
                 data_subset
             )
+            
+        # TODO: Make sure no data is nan
+        # TODO: Adjust time axis
         
-        # MikeB: I am strongly against having methods that
-        # modify class attributes instead of returning outputs.
-        #
-        # Users will not have any indication that their data
-        # has been modified unless they are paying attention or 
-        # have read the source code.
-        # 
-        # There is also no way to backtrack once you run the function,
-        # short of re-reading the raw datafiles again.
-        self.elevation += d_range
-        self.surface += d_time
-        self.data_radar = radar_comp
-        self.surface_elev = self.elevation - self.surface * half_speed_of_light
-        return elev_axis
+        radar_comp[radar_comp == 0] = np.nan
+        return radar_comp, elev_axis
 
-    def plot_quicklook(self, scale_factor=4):
+    def plot_quicklook(self, ylim = None):
         with np.errstate(divide='ignore', invalid='ignore'):
             # NSIDC datasets are already in log-scale
             if self.data_type == 'NSIDC_NC':
@@ -364,6 +371,8 @@ class SnowRadar:
             f'{self.file_name} ({self.data_type})',
             fontdict={'size':'x-large'}
         )
+        if ylim:
+            ax.set_ylim(ylim)
         ax.set_aspect('auto')
         fig.colorbar(im, ax=ax)
         fig.tight_layout()
