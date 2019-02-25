@@ -25,12 +25,30 @@ CRESIS_RAW_FILE_LUT = {
 
 # TODO overload the class so it can except botht the .mat and NC snow radar files
 class SnowRadar:
+    '''
+    Python representation of a <proper-name-of-snowradar-instrument> dataset
+    Supported formats: 
+        .mat v5     (OIB)
+        .mat v7     (OIB, AWI)
+        .nc         (NSIDC L1b)
+
+    Arguments:
+        file_path: absolute or relative path to input SnowRadar dataset
+        l_case: 'meta' or 'full' to either load just metadata, or the entire dataset
+
+    '''
+    # The OIB snow radar (2-8 GHz) data comes as matlab v5 or v7
+    # The AWI snow radar data comes as matlab v7 so its closer to a HDF file
     def __init__(self, file_path, l_case):
         self.file_path = os.path.abspath(file_path)
         if not os.path.exists(self.file_path):
             raise FileNotFoundError(self.file_path)
-        else:
-            print('Processing: ' + self.file_path)
+        if not l_case.lower() in ['meta', 'full']:
+            raise ValueError(
+                "Load case: %s not understood. " +\
+                "Must be one of ['meta', 'full']" % l_case
+            )
+        print('Processing: ' + self.file_path)
         self.file_name = os.path.basename(self.file_path)
         self.load_type = l_case
         self.air_snow = None
@@ -136,7 +154,7 @@ class SnowRadar:
                 self.elev_corrected = np.any(radar_dat['param_records']['get_heights']['elev_correction'])
             except KeyError:
                 self.elev_corrected = False
-                
+
         # Geospatial boundary box
         self.extent = np.hstack((
             lons.min(), lats.min(),
@@ -169,14 +187,6 @@ class SnowRadar:
             null_upper = null_space[null_space<self.surf_bin.min()].min()
             null_lower = null_space[null_space>self.surf_bin.max()].max()
         return null_lower, null_upper
-        
-    def as_dict(self):
-        '''generic method, to be extended by OIB and AWI subclasses'''
-        return {
-            'fname': self.file_name,
-            'fpath': self.file_path,
-            'l_case': self.load_type
-        }
     
     def calcpulsewidth(self, oversample_num=1000, num_nyquist_ts=100):
         '''
@@ -374,46 +384,16 @@ class SnowRadar:
         fig.tight_layout()
         plt.show()
 
-    def __str__(self):
-        return f'{self.data_type} Datafile: {self.file_name}'
-
-
-# The OIB snow radar (2-8 GHz) data comes as matlab v5 or v7
-# We use a bit of hacky magic to fit it into numpy arrays from dicts
-# TODO: Check file type where NSIDC = NC and CRESIS = MAT
-class OIB(SnowRadar):
-    def __init__(self, file_path, l_case='meta'):
-        super().__init__(file_path, l_case)
-        self.data_type = 'OIB_MAT'
-        radar_dat = matfunc.unified_loader(self)
-        super()._populate_instanceattr(radar_dat)
-
     def as_dict(self):
-        '''extend superclass as_dict method to include more OIB-relevant information'''
-        result = super().as_dict()
-        result.update({
+        '''generic metadata for SnowRadar instance'''
+        return {
+            'fname': self.file_name,
+            'fpath': self.file_path,
+            'l_case': self.load_type,
             'tstart': self.time_utc.min(),
             'tend': self.time_utc.max(),
             'poly': self.poly.wkt,
-        })
-        return result
+        }
 
-
-# The AWI snow radar data comes as matlab v7 so its closer to a HDF file
-# Use h5py to read and process it
-class AWI(SnowRadar):
-    def __init__(self, file_path, l_case='meta'):
-        super().__init__(file_path, l_case)
-        self.data_type = 'AWI_MAT'
-        radar_dat = matfunc.unified_loader(self)
-        super()._populate_instanceattr(radar_dat)
-        
-    def as_dict(self):
-        '''extend superclass as_dict method to include more AWI-relevant information'''
-        result = super().as_dict()
-        result.update({
-            'tstart': self.time_utc.min(),
-            'tend': self.time_utc.max(),
-            'poly': self.poly.wkt
-        })
-        return result
+    def __str__(self):
+        return f'{self.data_type} Datafile: {self.file_name}'
