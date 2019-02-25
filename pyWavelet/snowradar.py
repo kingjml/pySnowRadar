@@ -45,8 +45,8 @@ class SnowRadar:
             raise FileNotFoundError(self.file_path)
         if not l_case.lower() in ['meta', 'full']:
             raise ValueError(
-                "Load case: %s not understood. " +\
-                "Must be one of ['meta', 'full']" % l_case
+                "Load case: %s not understood. " % l_case +\
+                "Must be one of ['meta', 'full']" 
             )
         print('Processing: ' + self.file_path)
         self.file_name = os.path.basename(self.file_path)
