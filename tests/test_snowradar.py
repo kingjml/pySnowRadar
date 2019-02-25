@@ -1,37 +1,28 @@
 import pytest
 from pathlib import Path
-from pyWavelet.snowradar import SnowRadar, OIB, AWI
+from pyWavelet.snowradar import SnowRadar
 
 # test the main SnowRadar class by itself plus the OIB and AWI subclasses
 TEST_DATA_ROOT = Path(__file__).parent.parent / 'pyWavelet' / 'data'
-BASE_CLASS_TEST_FILE = TEST_DATA_ROOT / 'sr' / 'Data_20160419_04_010.mat'
 OIB_TEST_FILE = TEST_DATA_ROOT / 'sr' / 'Data_20160419_04_010.mat'
 AWI_TEST_FILE = TEST_DATA_ROOT / 'awi' / 'Data_20170410_01_006.mat'
 
 # fixtures are basically objects only instantiated when tests request them specifically
 @pytest.fixture
-def sr_full():
-    return SnowRadar(str(BASE_CLASS_TEST_FILE), l_case='full')
-
-@pytest.fixture
-def sr_meta():
-    return SnowRadar(str(BASE_CLASS_TEST_FILE), l_case='meta')
-
-@pytest.fixture
 def oib_full():
-    return OIB(str(OIB_TEST_FILE), l_case='full')
+    return SnowRadar(str(OIB_TEST_FILE), l_case='full')
 
 @pytest.fixture
 def oib_meta():
-    return OIB(str(OIB_TEST_FILE), l_case='meta')
+    return SnowRadar(str(OIB_TEST_FILE), l_case='meta')
 
 @pytest.fixture
 def awi_full():
-    return AWI(str(AWI_TEST_FILE), l_case='full')
+    return SnowRadar(str(AWI_TEST_FILE), l_case='full')
 
 @pytest.fixture
 def awi_meta():
-    return AWI(str(AWI_TEST_FILE), l_case='meta')
+    return SnowRadar(str(AWI_TEST_FILE), l_case='meta')
 
 def test_file_missing():
     with pytest.raises(FileNotFoundError):
@@ -46,20 +37,6 @@ def test_oib_str_repr(oib_full, oib_meta):
     expected = f'OIB_MAT Datafile: {Path(OIB_TEST_FILE).name}'
     assert str(oib_full) == expected
     assert str(oib_meta) == expected
-
-def test_base_as_dict(sr_full, sr_meta):
-    expected_full = {
-        'fname': BASE_CLASS_TEST_FILE.name,
-        'fpath': str(BASE_CLASS_TEST_FILE.absolute()),
-        'l_case': 'full'
-    }
-    expected_meta = {
-        'fname': BASE_CLASS_TEST_FILE.name,
-        'fpath': str(BASE_CLASS_TEST_FILE.absolute()),
-        'l_case': 'meta'
-    }
-    assert sr_full.as_dict() == expected_full
-    assert sr_meta.as_dict() == expected_meta
 
 def test_awi_as_dict(awi_full, awi_meta):
     '''expected data based on Data_20170410_01_006.mat'''
