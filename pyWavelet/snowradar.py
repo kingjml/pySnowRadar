@@ -173,7 +173,7 @@ class SnowRadar:
         surf_time = np.interp(surf_bin,np.arange(0,len(self.time_fast)),self.time_fast)
         return surf_bin , surf_time
     
-    def get_bounds(self, m_above = None, m_below = 1):
+    def get_bounds(self, m_above = None, m_below = 2):
         '''
         Get bin numbers where there is valid data (non-nan)
         A threshold can be supplied 
@@ -244,21 +244,20 @@ class SnowRadar:
         '''
         Ported by Josh King from CRESIS uncompress_echogram.m by John Paden
         '''
-        print('Decompressing data...') 
         Nz = self.elv_corr.max()
         Nt = Nz + len(self.trunc_bins)
-        self.elevation = self.elevation - self.elv_corr * self.dfr
-        self.surface = self.surface - self.elv_corr * self.dft
-        self.data_radar = np.pad(self.data_radar, [(Nz,0 ), (0, 0)], 'constant', constant_values=(np.nan))
+        data_radar_decomp = np.pad(self.data_radar, [(Nz,0 ), (0, 0)], 'constant', constant_values=(np.nan))
          
-        for rline in np.arange(0,self.data_radar.shape[1]):
-            self.data_radar[:, rline] = np.roll(self.data_radar[:, rline], -self.elv_corr[rline])
+        for rline in np.arange(0,data_radar_decomp.shape[1]):
+            data_radar_decomp[:, rline] = np.roll(data_radar_decomp[:, rline], -self.elv_corr[rline])
         if len(self.time_fast) == len(self.trunc_bins):
             t0 = self.time_fast[0] - Nz*self.dft
         else:
             t0 =  self.time_fast[self.trunc_bins[0]] - Nz * self.dft
-            self.time_fast = t0 + self.dft*np.arange(0, Nt-1)
-        print('finished')
+        
+        time_decomp = t0 + self.dft*np.arange(0, Nt-1)
+            
+        return data_radar_decomp, time_decomp
     
     def elevation_compensation(self, perm_ice=3.15):
         '''
