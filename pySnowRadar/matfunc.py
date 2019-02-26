@@ -155,6 +155,9 @@ def nc_to_dict(hdf5_obj):
         hdf5_obj.attrs['max_time_bound'].astype('U').rstrip(' GPS')
     ).timestamp()
     data['GPS_time'] = np.array([min_time, max_time], dtype=float)
+    # Monkey-patching the NSIDC L1b datasets
+    data['Data'] = np.power(10, data['Data'][:] / 10)
+    data['Time'] *= 1e-6
     return data
 
 def nc_set_nested_value(target_dict, keys, value):
