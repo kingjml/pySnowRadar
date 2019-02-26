@@ -85,32 +85,32 @@ def h5py_to_dict(hdf5_obj, exclude_names=None):
             must_decode = 'MATLAB_int_decode' in list(v.attrs)
             if must_decode:
                 # treat uint8 differently from uint16
-                if v.value.dtype == 'uint16':
+                if v[()].dtype == 'uint16':
                     # converts uint16 to Byte and decodes to string
                     # https://stackoverflow.com/a/45593385
-                    data[k] = v.value.tobytes()[::2].decode()
-                elif v.value.dtype == 'uint8':
+                    data[k] = v[()].tobytes()[::2].decode()
+                elif v[()].dtype == 'uint8':
                     # converts 1x1 uint8 array to single bool value
-                    data[k] = v.value.astype(bool).item()
+                    data[k] = v[()].astype(bool).item()
                 # empty attribute stored as 2-element array of type uint64
-                elif v.value.dtype == 'uint64' and v.value.shape == (2,):
+                elif v[()].dtype == 'uint64' and v[()].shape == (2,):
                     data[k] == None
             else:
                 # need to convert HDF object references into actual data
-                dtype = v.value.dtype
+                dtype = v[()].dtype
                 if dtype == 'object':
                     try:
                         data[k] = np.array([
-                            np.squeeze(v.parent[reference].value)
-                            for reference in np.squeeze(v.value)
+                            np.squeeze(v.parent[reference][()])
+                            for reference in np.squeeze(v[()])
                         ])
                     except:
                         pass
                 else:
                     try: # try to convert 1x1 arrays into scalars
-                        data[k] = v.value.item()
+                        data[k] = v[()].item()
                     except ValueError: # keep NxN arrays the way they are
-                        data[k] = np.squeeze(v.value)
+                        data[k] = np.squeeze(v[()])
         elif isinstance(v, h5py.Group):
             # recursively step through h5py.Groups to get at the datasets
             data[k] = h5py_to_dict(v)
@@ -139,13 +139,13 @@ def nc_to_dict(hdf5_obj):
         k_list = [s.split('(')[0].split('{')[0] for s in k.split('.')]
         if v.dtype == '<S1':
             try:
-                val = ''.join(v.value.flatten().astype('U'))
+                val = ''.join(v[()].flatten().astype('U'))
             except TypeError:
                 val = None
         elif v.dtype == 'uint16':
-            val = v.value.astype(bool).item()
+            val = v[()].astype(bool).item()
         else:
-            val = np.squeeze(v.value)
+            val = np.squeeze(v[()])
         nc_set_nested_value(data, k_list, val)
     # also grab the GPS times from the netCDF header
     min_time = parse(
