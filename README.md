@@ -1,9 +1,8 @@
 
 
-# pyWavelet (name TBC)
+# pySnowRadar
 
-This is a package that Josh wants to be made legit.
-
+A python package to process data from CRESIS SnowRadar systems.
 
 
 
