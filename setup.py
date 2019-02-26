@@ -4,7 +4,7 @@ with open('README.md', 'r') as readme:
     long_description = readme.read()
 
 setup(
-    name='pyWavelet',
+    name='pySnowRadar',
     version='0.0.1',
     author='Climate Research Division',
     author_email='',

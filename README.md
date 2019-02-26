@@ -27,22 +27,22 @@ https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.pkg
 
 ```
 conda env create -f requirements.yml
-conda activate py3-pyWavelet
+conda activate py3-pySnowRadar
 ```
 
-### 3) Installing `pyWavelet`
+### 3) Installing `pySnowRadar`
 
 ```
-cd /path/to/pywavelet/project/root/dir
-conda activate py3-pyWavelet # skip this if you're coming from Step 2
+cd /path/to/pySnowRadar/project/root/dir
+conda activate py3-pySnowRadar # skip this if you're coming from Step 2
 pip install . 
 ```
 
-Now you can import the `pyWavelet` module and its associated submodules, or checkout the jupyter notebooks within this repo.
+Now you can import the `pySnowRadar` module and its associated submodules, or checkout the jupyter notebooks within this repo.
 
 ### Development notes
 
-Remember to re-install `pyWavelet` to your environment after you've made changes to the code with:
+Remember to re-install `pySnowRadar` to your environment after you've made changes to the code with:
 ```
 pip install . --upgrade
 ```
@@ -52,7 +52,7 @@ pip install . --upgrade
 #### Setup
 
 ```
-cd /path/to/pywavelet/project/root/dir
+cd /path/to/pySnowRadar/project/root/dir
 ```
 Test files are stored under the `tests` subdirectory
 

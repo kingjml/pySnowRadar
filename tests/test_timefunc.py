@@ -1,5 +1,5 @@
 import pytest
-from pyWavelet.timefunc import utcleap
+from pySnowRadar.timefunc import utcleap
 
 def test_utcleap_invalid():
     with pytest.raises(Exception):
