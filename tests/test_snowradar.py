@@ -1,9 +1,9 @@
 import pytest
 from pathlib import Path
-from pyWavelet.snowradar import SnowRadar
+from pySnowRadar.snowradar import SnowRadar
 
 # test the main SnowRadar class by itself plus the OIB and AWI subclasses
-TEST_DATA_ROOT = Path(__file__).parent.parent / 'pyWavelet' / 'data'
+TEST_DATA_ROOT = Path(__file__).parent.parent / 'pySnowRadar' / 'data'
 OIB_TEST_FILE = TEST_DATA_ROOT / 'sr' / 'Data_20160419_04_010.mat'
 AWI_TEST_FILE = TEST_DATA_ROOT / 'awi' / 'Data_20170410_01_006.mat'
 NSIDC_TEST_FILE = TEST_DATA_ROOT / 'nsidc' / 'IRSNO1B_20171125_01_118.nc'

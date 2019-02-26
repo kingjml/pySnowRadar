@@ -1,4 +1,4 @@
-name: py3-pyWavelet
+name: py3-pySnowRadar
 channels:
   - defaults
 dependencies:
