@@ -366,10 +366,6 @@ class SnowRadar:
 
     def plot_quicklook(self, ylim = None):
         with np.errstate(divide='ignore', invalid='ignore'):
-            # NSIDC datasets are already in log-scale
-            if self.data_type == 'NSIDC_NC':
-                radar_sub = self.data_radar
-            else:
                 radar_sub = 10 * np.log10(self.data_radar)
         fig, ax = plt.subplots(figsize=(9,7))
         im = ax.imshow(radar_sub, cmap='gist_gray')
