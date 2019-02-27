@@ -131,6 +131,10 @@ NC_VAR_NAME_SWAP_LUT = {
 }
 
 def nc_to_dict(hdf5_obj):
+    '''
+    NB: this is currently hardcoded to the current (Feb 26 2019)
+        NSIDC OIB L1b NetCDF datasets
+    '''
     data = {}
     # iterate through the netCDF, trying to convert to dict
     # in the same format as the Matlab dicts
@@ -155,6 +159,11 @@ def nc_to_dict(hdf5_obj):
         hdf5_obj.attrs['max_time_bound'].astype('U').rstrip(' GPS')
     ).timestamp()
     data['GPS_time'] = np.array([min_time, max_time], dtype=float)
+    # Altering the NSIDC L1b datasets to conform to Matlab data
+    data['Data'] = np.power(10, data['Data'][:] / 10)
+    data['Time'] *= 1e-6
+    data['Roll'] = np.radians(data['Roll'][:])
+    data['Pitch'] = np.radians(data['Pitch'][:])
     return data
 
 def nc_set_nested_value(target_dict, keys, value):
