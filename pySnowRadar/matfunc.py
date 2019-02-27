@@ -163,7 +163,7 @@ def nc_to_dict(hdf5_obj):
     data['Data'] = np.power(10, data['Data'][:] / 10)
     data['Time'] *= 1e-6
     data['Roll'] = np.radians(data['Roll'][:])
-    data['Pitch'] = np.radians(data['Roll'][:])
+    data['Pitch'] = np.radians(data['Pitch'][:])
     return data
 
 def nc_set_nested_value(target_dict, keys, value):
