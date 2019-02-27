@@ -43,20 +43,25 @@ def _todict(matobj):
 
 def unified_loader(sr_obj):
     '''Loads SnowRadar data files depending on filetype'''
-    # The versions of the OIB MAT file formats seem to be inconsistent
-    # This tries different approaches to read to find one that works
-    try:
-        radar_dat = loadmat(sr_obj.file_path)
-    # NotImplementedError raised by spio.loadmat for matlab v7 files
-    except NotImplementedError:
-        with h5py.File(sr_obj.file_path, 'r') as in_mat:
-            radar_dat = h5py_to_dict(in_mat, exclude_names='#refs#')
-    # ValueError is raised by spio.loadmat for NSIDC netCDF files
-    except ValueError:
-        with h5py.File(sr_obj.file_path, 'r') as in_nc:
-            radar_dat = nc_to_dict(in_nc)
-    except:
-        raise IOError('Could not read SnowRadar file: %s' % sr_obj.file_name)
+    # Check for NSIDC NetCDF format first
+    if sr_obj.file_path.endswith('.nc'):
+        try:
+            with h5py.File(sr_obj.file_path, 'r') as in_nc:
+                radar_dat = nc_to_dict(in_nc)
+        except:
+            raise IOError('Could not read SnowRadar file: %s' % sr_obj.file_name)
+    # else assume that it can only be a Matlab data file
+    else:
+        # The versions of the OIB MAT file formats seem to be inconsistent
+        # This tries different approaches to read to find one that works
+        try:
+            radar_dat = loadmat(sr_obj.file_path)
+        # NotImplementedError raised by spio.loadmat for matlab v7 files
+        except NotImplementedError:
+            with h5py.File(sr_obj.file_path, 'r') as in_mat:
+                radar_dat = h5py_to_dict(in_mat, exclude_names='#refs#')
+        except:
+            raise IOError('Could not read SnowRadar file: %s' % sr_obj.file_name)
     return radar_dat
 
 
