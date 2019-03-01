@@ -1,5 +1,6 @@
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import cpu_count
+from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
@@ -40,7 +41,7 @@ def geo_filter(input_sr_data):
     return sr_gdf.file.tolist()
 
 
-def extract_layers(data_path, snow_density=0.3):
+def extract_layers(data_path, snow_density=0.3, dump_results=False):
     '''
     For a given SnowRadar datafile, estimate the air-snow and snow-ice interfaces
     based on the supplied snow density
@@ -48,6 +49,7 @@ def extract_layers(data_path, snow_density=0.3):
     Arguments:
         data_path: file path to input SnowRadar data file
         snow_density: a single float value to use when picking interface layers
+        dump_results: whether or not to save the dataframe to a local csv file under ./dump/
 
     Output:
         A pandas dataframe with the following columns:
@@ -59,6 +61,15 @@ def extract_layers(data_path, snow_density=0.3):
             'b_si': the picked snow-ice interface layer
             'snow_depth': estimated snow depth based on picked layers
     '''
+    # skip reprocessing if local csv dump exists
+    outpath = Path('./dump')
+    outname = Path(data_path).stem + '.csv'
+    outfile = outpath / outname
+    if outfile.exists():
+        print('File exists for %s. Skipping processing....' % Path(data_path).name)
+        result = pd.read_csv(str(outfile.stem), index_col=0)
+        return result
+
     if not(0.1 <= snow_density <= 0.4):
         raise ValueError('Invalid snow density passed: %.3f ' % snow_density + \
                         '(Must be between 0.1 and 0.4)')
@@ -89,7 +100,7 @@ def extract_layers(data_path, snow_density=0.3):
     data_src = np.array([radar_dat.file_name] * radar_dat.lat.shape[0])
     refractive_index = np.array([r_idx] * radar_dat.lat.shape[0])
 
-    return pd.DataFrame({
+    result = pd.DataFrame({
         'src': data_src,
         'lat': radar_dat.lat,
         'lon': radar_dat.lon,
@@ -99,11 +110,19 @@ def extract_layers(data_path, snow_density=0.3):
         'snow_depth': snow_depth
     })
 
+    if dump_results:
+        outpath.mkdir(parents=True, exist_ok=True)
+        result.to_csv(str(outfile), na_rep='nan')
+    
+    return result
 
-def batch_process(input_sr_data, snow_density=0.3, workers=4):
+
+
+
+def batch_process(input_sr_data, snow_density=0.3, workers=4, dump_results=True):
     '''
     For a given list of SnowRadar data file paths:
-        1) Pick air-snow and snow-ice interface layers for the remaining 
+        1) Pick air-snow and snow-ice interface layers for the 
            data files using the supplied snow density
 
         2) Produce a dataframe with the all the picked interfaces for each 
@@ -115,6 +134,7 @@ def batch_process(input_sr_data, snow_density=0.3, workers=4):
             a) a single float value to apply to all data files
             b) a list of file-specific density values matching the length of input_sr_data
         workers: number of worker processes to use
+        dump_results: dumps each dataframe to a local csv
 
     Output:
         A concatendated pandas dataframe with the following columns:
@@ -132,27 +152,41 @@ def batch_process(input_sr_data, snow_density=0.3, workers=4):
     if workers > current_cores:
         raise SystemError('workers argument (passed: %d) cannot ' % workers + 
                           'exceed current CPU count (%d)' % current_cores)
+    length = len(input_sr_data)
+    dump_triggers = [dump_results] * length                          
     # Single value passed for snow_density
     if isinstance(snow_density, float):
         if not(0.1 <= snow_density <= 0.4):
             raise ValueError('Invalid snow density passed: %.3f ' % snow_density + \
                             '(Must be between 0.1 and 0.4)')
         else:
-            process_args = zip(input_sr_data, [snow_density] * len(input_sr_data))
+            process_args = zip(
+                input_sr_data, 
+                [snow_density] * length, 
+                dump_triggers
+            )
     # Multiple values passed for snow_density
     elif isinstance(snow_density, list):
-        if len(snow_density) != len(input_sr_data):
+        if len(snow_density) != length:
             raise ValueError('Passed list of snow densities must match length of ' + \
                              'passed snowradar files. ' + \
-                             'Files -> %d Densities -> %d' % (len(snow_density), len(input_sr_data)))
+                             'Files -> %d Densities -> %d' % (len(snow_density), length))
         elif any([not(0.1 <= sd <= 0.4) for sd in snow_density]):
             raise ValueError('Invalid list of snow densities passed. ' + \
                              'All snow density values must be between 0.1 and 0.4')
         else:
-            process_args = zip(input_sr_data, snow_density)
+            process_args = zip(
+                input_sr_data,
+                snow_density,
+                dump_triggers
+            )
     else:
         print('Invalid argument for snow density. Proceeding with default value (0.3)')
-        process_args = zip(input_sr_data, [snow_density] * len(input_sr_data))
+        process_args = zip(
+            input_sr_data, 
+            [snow_density] * length,
+            dump_triggers
+        )
 
     # Define the threadpool and submit/execute the list of tasks
     with ProcessPoolExecutor(workers) as pool:
