@@ -48,7 +48,7 @@ class SnowRadar:
                 "Load case: %s not understood. " % l_case +\
                 "Must be one of ['meta', 'full']" 
             )
-        print('Processing: ' + self.file_path)
+        #print('Processing: ' + self.file_path)
         self.file_name = os.path.basename(self.file_path)
         self.load_type = l_case
         self.air_snow = None
