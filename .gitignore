@@ -162,6 +162,7 @@ venv.bak/
 *.code-workspace
 
 # custom
+dump
 *.h5
 *.h5.xml
 *.mat
