@@ -9,7 +9,8 @@ from scipy import signal
 from shapely.geometry import box
 import geopandas as gpd
 import pandas as pd
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import cpu_count
 
 C = 299792458 # Vacuum speed of light
 QC_PITCH_MAX = 5 # Max ATM pitch in def
@@ -517,6 +518,11 @@ def batch_process(input_sr_data, snow_density=0.3, workers=4):
             'snow_depth': estimated snow depth based on picked layers
 
     '''
+    # first check to ensure that you're not going to blow up your hardware
+    current_cores = cpu_count()
+    if workers > current_cores:
+        raise SystemError('workers argument (passed: %d) cannot ' % workers + 
+                          'exceed current CPU count (%d)' % current_cores)
     # Single value passed for snow_density
     if isinstance(snow_density, float):
         if not(0.1 <= snow_density <= 0.4):
@@ -540,7 +546,7 @@ def batch_process(input_sr_data, snow_density=0.3, workers=4):
         process_args = zip(input_sr_data, [snow_density] * len(input_sr_data))
 
     # Define the threadpool and submit/execute the list of tasks
-    with ThreadPoolExecutor(workers) as pool:
+    with ProcessPoolExecutor(workers) as pool:
         futures = [pool.submit(extract_layers, *foo) for foo in process_args]
         results = [f.result() for f in futures]
     # return a concatenated dataframe containing results for all input datasets
