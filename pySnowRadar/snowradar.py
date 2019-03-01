@@ -2,10 +2,14 @@ import os
 import h5py
 from . import matfunc
 from . import timefunc
+from . import picklayers
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
 from shapely.geometry import box
+import geopandas as gpd
+import pandas as pd
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 C = 299792458 # Vacuum speed of light
 QC_PITCH_MAX = 5 # Max ATM pitch in def
@@ -41,6 +45,7 @@ class SnowRadar:
     # The AWI snow radar data comes as matlab v7 so its closer to a HDF file
     def __init__(self, file_path, l_case):
         self.file_path = os.path.abspath(file_path)
+        self.file_name = os.path.basename(self.file_path)
         if not os.path.exists(self.file_path):
             raise FileNotFoundError(self.file_path)
         if not l_case.lower() in ['meta', 'full']:
@@ -48,8 +53,7 @@ class SnowRadar:
                 "Load case: %s not understood. " % l_case +\
                 "Must be one of ['meta', 'full']" 
             )
-        print('Processing: ' + self.file_path)
-        self.file_name = os.path.basename(self.file_path)
+        print('Loading: %s (%s)' % (self.file_name, l_case))
         self.load_type = l_case
         self.air_snow = None
         self.snow_ice = None
@@ -174,19 +178,19 @@ class SnowRadar:
         surf_time = np.interp(surf_bin,np.arange(0,len(self.time_fast)),self.time_fast)
         return surf_bin , surf_time
     
-    def get_bounds(self, m_above = None, m_below = 2):
+    def get_bounds(self, m_above=None, m_below=2):
         '''
         Get bin numbers where there is valid data (non-nan)
         A threshold can be supplied 
         
         '''
         if m_above:
-            null_lower = self.surf_bin.max()+(m_below/self.dfr).astype(int)
-            null_upper = self.surf_bin.min()-(m_above/self.dfr).astype(int)
+            null_lower = self.surf_bin.max() + (m_below / self.dfr).astype(int)
+            null_upper = self.surf_bin.min() - (m_above / self.dfr).astype(int)
         else:
             null_space = np.argwhere(np.isnan(self.data_radar))[:,0]
-            null_upper = null_space[null_space<self.surf_bin.min()].min()
-            null_lower = null_space[null_space>self.surf_bin.max()].max()
+            null_upper = null_space[null_space < self.surf_bin.min()].min()
+            null_lower = null_space[null_space > self.surf_bin.max()].max()
         return null_lower, null_upper
     
     def calcpulsewidth(self, oversample_num=1000, num_nyquist_ts=100):
@@ -393,3 +397,71 @@ class SnowRadar:
 
     def __str__(self):
         return f'{self.data_type} Datafile: {self.file_name}'
+
+def batch_process(input_sr_data, snow_density=0.3, workers=4):
+    '''
+    For a given list of SnowRadar data file paths:
+        1)  drop any instances of data whose bounding geometry intersects 
+            the Canadian land mass (based on natural earth 110m data)
+
+        2)  pick air-snow and snow-ice interface layers for the remaining 
+            datafiles using the supplied snow density
+    '''
+    if not(0 < snow_density <= 5):
+        raise ValueError('Invalid snow density passed: %f ' % snow_density + \
+                         '(Must be between 0.0 and 5.0)')
+    # Drop all data that intersects with Canadian land features
+    world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+    canada = world.loc[world.name == 'Canada']
+    # Load the datafiles in 'meta' mode to just scrape the bounding geometry
+    sr_meta = [SnowRadar(sr, 'meta') for sr in input_sr_data]
+    sr_gdf = gpd.GeoDataFrame(
+        data={'file': [sr.file_path for sr in sr_meta]}, 
+        geometry=[sr.poly for sr in sr_meta], 
+        crs={'init':'epsg:4326'}
+    )
+    sr_gdf = sr_gdf.drop(
+        gpd.sjoin(sr_gdf, canada, how='inner', op='intersects').index
+    )
+    if len(sr_gdf) < 1:
+        print('No suitable datafiles left after geospatial filtering')
+        return None
+
+    # Convert density to refractive index which will be used for all valid datafiles
+    refractive_index = np.sqrt((1 + 0.51 * snow_density) ** 3)
+
+    # The task template that will be applied to all valid datafiles
+    def extract_layers(data_path):
+        radar_dat = SnowRadar(data_path, 'full')
+        radar_dat.surf_bin, radar_dat.surface = radar_dat.get_surface()
+        radar_dat.calcpulsewidth()
+        lower, upper = radar_dat.get_bounds(m_above=5)
+        radar_subset = radar_dat.data_radar[upper:lower, :]
+        try:
+            airsnow, snowice = np.apply_along_axis(
+                picklayers.picklayers,
+                axis=0, 
+                arr=radar_subset,
+                null_2_space=radar_dat.n2n,
+                delta_fast_time_range=radar_dat.dfr,
+                n_snow=refractive_index
+            )
+        except:
+            print('Picklayers blew up for file: %s' % radar_dat.file_name)
+            airsnow = np.array([np.nan] * radar_dat.lat.shape[0])
+            snowice = np.array([np.nan] * radar_dat.lat.shape[0])
+        result = pd.DataFrame({
+            'lat': radar_dat.lat,
+            'lon': radar_dat.lon,
+            'b_as': airsnow,
+            'b_si': snowice
+        })
+        result['src'] = radar_dat.file_name
+        return result
+
+    # Define the threadpool and submit/execute the list of tasks
+    with ThreadPoolExecutor(workers) as pool:
+        futures = [pool.submit(extract_layers, f) for f in sr_gdf.file.tolist()]
+        results = [f.result() for f in futures]
+    df = pd.concat(results)
+    return df
