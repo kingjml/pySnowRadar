@@ -12,9 +12,10 @@ from pySnowRadar.snowradar import SnowRadar
 def geo_filter(input_sr_data):
     '''
     Given a list of SnowRadar datafiles (.mat, .h5, .nc), filter out
-    any files whose bounding geometry intersect with the Canadian land mass
+    any files whose bounding geometry intersect with land
 
-    Landmask is based on Natural Earth 110m (low-res)
+    Landmask is based on NaturalEarth 1:10m Cultural v4.1.0 (Canada, Greenland, and USA)
+    http://www.naturalearthdata.com/
 
     Arguments:
         input_sr_data: list of supported SnowRadar data files
@@ -22,9 +23,10 @@ def geo_filter(input_sr_data):
     Output:
         subset of input_sr_data where no land intersections occur
     '''
-    # Drop all data that intersects with Canadian land features
-    world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
-    canada = world.loc[world.name == 'Canada']
+    # Drop all data that intersects with land features
+    land = gpd.read_file('/vsizip/' + str(Path(__file__).parent / 
+                         'data' / 'natearth' / 
+                         'ne_10m_admin_0_countries_northamerica.zip'))
     # Load the datafiles in 'meta' mode to just scrape the bounding geometry
     sr_meta = [SnowRadar(sr, 'meta') for sr in input_sr_data]
     sr_gdf = gpd.GeoDataFrame(
@@ -33,7 +35,7 @@ def geo_filter(input_sr_data):
         crs={'init':'epsg:4326'}
     )
     sr_gdf = sr_gdf.drop(
-        gpd.sjoin(sr_gdf, canada, how='inner', op='intersects').index
+        gpd.sjoin(sr_gdf, land, how='inner', op='intersects').index
     )
     if len(sr_gdf) < 1:
         print('No suitable datafiles left after geospatial filtering')
@@ -117,8 +119,6 @@ def extract_layers(data_path, snow_density=0.3, dump_results=False):
     return result
 
 
-
-
 def batch_process(input_sr_data, snow_density=0.3, workers=4, dump_results=True):
     '''
     For a given list of SnowRadar data file paths:
@@ -137,7 +137,7 @@ def batch_process(input_sr_data, snow_density=0.3, workers=4, dump_results=True)
         dump_results: dumps each dataframe to a local csv
 
     Output:
-        A concatendated pandas dataframe with the following columns:
+        A concatenated pandas dataframe with the following columns:
             'src': the name of the source SnowRadar data file
             'lat': latitude of trace(?)
             'lon': longitude of trace(?)
@@ -184,7 +184,7 @@ def batch_process(input_sr_data, snow_density=0.3, workers=4, dump_results=True)
         print('Invalid argument for snow density. Proceeding with default value (0.3)')
         process_args = zip(
             input_sr_data, 
-            [snow_density] * length,
+            [0.3] * length,
             dump_triggers
         )
 
