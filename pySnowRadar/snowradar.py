@@ -4,7 +4,7 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
-from shapely.geometry import box
+from shapely.geometry import box, Point, LineString
 
 from . import matfunc, timefunc
 
@@ -166,6 +166,12 @@ class SnowRadar:
             lons.max(), lats.max()
         )).ravel()
         self.poly = box(*self.extent)
+        # Simplified polyline of track
+        points = [Point(xy) for xy in zip(lons, lats)]
+        line = LineString(points)
+        # try to simplify the line with a tight tolerance (degrees)
+        self.line = line.simplify(tolerance=1e-6)
+        
 
     def get_surface(self, smooth=True):
         '''
@@ -409,6 +415,7 @@ class SnowRadar:
             'tstart': self.time_utc.min(),
             'tend': self.time_utc.max(),
             'poly': self.poly.wkt,
+            'line': self.line.wkt
         }
 
     def __str__(self):

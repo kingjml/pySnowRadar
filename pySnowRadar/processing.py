@@ -27,11 +27,11 @@ def geo_filter(input_sr_data):
     land = gpd.read_file('/vsizip/' + str(Path(__file__).parent / 
                          'data' / 'natearth' / 
                          'ne_10m_admin_0_countries_northamerica.zip'))
-    # Load the datafiles in 'meta' mode to just scrape the bounding geometry
+    # Load the datafiles in 'meta' mode to just scrape the simplified track line
     sr_meta = [SnowRadar(sr, 'meta') for sr in input_sr_data]
     sr_gdf = gpd.GeoDataFrame(
         data={'file': [sr.file_path for sr in sr_meta]}, 
-        geometry=[sr.poly for sr in sr_meta], 
+        geometry=[sr.line for sr in sr_meta], 
         crs={'init':'epsg:4326'}
     )
     sr_gdf = sr_gdf.drop(
@@ -69,7 +69,7 @@ def extract_layers(data_path, snow_density=0.3, dump_results=False):
     outfile = outpath / outname
     if outfile.exists():
         print('File exists for %s. Skipping processing....' % Path(data_path).name)
-        result = pd.read_csv(str(outfile.stem), index_col=0)
+        result = pd.read_csv(str(outfile), index_col=0)
         return result
 
     if not(0.1 <= snow_density <= 0.4):
