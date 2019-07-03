@@ -392,7 +392,7 @@ class SnowRadar:
             ylim: customize the upper bound of the plot
         '''
         with np.errstate(divide='ignore', invalid='ignore'):
-                radar_sub = 10 * np.log10(self.data_radar)
+            radar_sub = 10 * np.log10(self.data_radar)
         fig, ax = plt.subplots(figsize=(9,7))
         im = ax.imshow(radar_sub, cmap='gist_gray')
         ax.set_title(
