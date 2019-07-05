@@ -385,8 +385,8 @@ class SnowRadar:
 
     def fetch_atm(self, atm_folder):
         '''
-        Attempt to locate and load any locally-available NASA ATM data granules that share the same day
-        as the current SnowRadar object
+        Attempt to locate and load any locally-available NASA ATM data granules 
+        that share the same day as the current SnowRadar object
 
         Inputs:
             atm_folder: the local directory where ATM granules should be located
@@ -402,12 +402,13 @@ class SnowRadar:
         # check for temporal match (same day as current SnowRadar data)
         ## TODO: do ATM/SnowRadar datasets ever get gathered at night? If so, may need to be smarter about temporal matching
         relevant_atm_data = [
-            ATM(os.path.join(r, f)) for f in fs if 
+            ATM(os.path.join(r, f)) 
+            for r, ds, fs in os.walk(atm_folder) 
+            for f in fs if 
             'ATM' in f and 
             f.endswith('.h5') and 
             f.split('_')[1] == d
-            for r, ds, fs in os.walk(atm_folder)
-        ]        
+        ]
         if len(relevant_atm_data) == 0:
             print('No ATM data found for %s' % self.__str__())
             return
@@ -421,13 +422,19 @@ class SnowRadar:
             print('No ATM data found for %s' % self.__str__())
             return
 
-        # assuming we still have some ATM data after spatiotemporal filtering, we concatenate
+        # assuming we still have some ATM data after spatiotemporal filtering, 
+        # we sort by filename and concatenate into 1 big dataframe
+        relevant_atm_data.sort(key=lambda x: x.file_name)
         df = pd.concat([
             pd.DataFrame({
-                
+                'atm_src': [atm.file_name]*len(atm.pitch),
+                'atm_pitch': atm.pitch,
+                'atm_roll': atm.roll,
+                'atm_time_gps': atm.time_gps
             })
             for atm in relevant_atm_data
-        ])
+        ]).reset_index(drop=True)
+        return df
         
 
 
