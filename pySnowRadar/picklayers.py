@@ -2,6 +2,26 @@ import numpy as np
 import pywt
 
 def picklayers(data, null_2_space, delta_fast_time_range, n_snow, ref_snow_layer=1):
+    '''
+    Function to detect 2 interface layers from a given SnowRadar signal:
+        Air-Snow interface
+        Snow-Ice Interface
+
+    Currently uses the Continuous Wavelet Transform (cwt) method originally developed
+    by Thomas Newman
+
+    Arguments:
+        data: 2D radar data array
+        null_2_space:(?)
+        delta_fast_time_range:(?)
+        n_snow: the refractive index of snow(?)
+        ref_snow_layer:(?)
+
+    Outputs:
+        locs_as: Air-snow interface bin index
+        locs_si: Snow-ice interface bin index
+
+    '''
     ref_scale_lin_m = 2 * null_2_space
     max_scale_lin = np.ceil(ref_scale_lin_m / delta_fast_time_range)
     lin_scale_vect_pre = np.arange(2, max_scale_lin, 1)
@@ -31,6 +51,18 @@ def picklayers(data, null_2_space, delta_fast_time_range, n_snow, ref_snow_layer
     return locs_as, locs_si
 
 def cwt(data, wavelet, scales, precision=10):
+    '''
+    Implementation of the Continuous Wavelet Transform
+
+    Arguments:
+        data: preprocessed snowradar signal data
+        wavelet: the specific Wavelet to use (currently the Haar wavelet)
+        scales: 
+        precision: precision to apply to wavelet operations (default 10)
+
+    Outputs:
+        out_coefs:(?)
+    '''
     out_coefs = np.zeros((np.size(scales), data.size))
     int_psi, x = pywt.integrate_wavelet(wavelet, precision=precision)
     step = x[1] - x[0]

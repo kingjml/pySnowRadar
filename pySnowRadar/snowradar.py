@@ -1,11 +1,12 @@
 import os
+
 import h5py
-from . import matfunc
-from . import timefunc
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
-from shapely.geometry import box
+from shapely.geometry import box, Point, LineString
+
+from . import matfunc, timefunc
 
 C = 299792458 # Vacuum speed of light
 QC_PITCH_MAX = 5 # Max ATM pitch in def
@@ -41,6 +42,7 @@ class SnowRadar:
     # The AWI snow radar data comes as matlab v7 so its closer to a HDF file
     def __init__(self, file_path, l_case):
         self.file_path = os.path.abspath(file_path)
+        self.file_name = os.path.basename(self.file_path)
         if not os.path.exists(self.file_path):
             raise FileNotFoundError(self.file_path)
         if not l_case.lower() in ['meta', 'full']:
@@ -48,8 +50,7 @@ class SnowRadar:
                 "Load case: %s not understood. " % l_case +\
                 "Must be one of ['meta', 'full']" 
             )
-        print('Processing: ' + self.file_path)
-        self.file_name = os.path.basename(self.file_path)
+        print('Loading: %s (%s)' % (self.file_name, l_case))
         self.load_type = l_case
         self.air_snow = None
         self.snow_ice = None
@@ -72,8 +73,11 @@ class SnowRadar:
         Operation IceBridge             (2016): Matlab v5 HDF
         Operation IceBridge             (2017): Matlab v7 HDF
         Alfred Wegener Institute        (2017): Matlab v7 HDF
-        National Snow & Ice Data Center (2017): NetCDF-4 NC
+        National Snow & Ice Data Center L1b   : NetCDF-4 NC
 
+        Arguments:
+            radar_dat: a dictionary containing data and attributes from 
+                       the current SnowRadar instance's source dataset
         '''
         # scrape some metadata in order to decide how to treat the sourcefile
         self.radar_name_code = radar_dat['param_records']['radar_name']
@@ -162,6 +166,12 @@ class SnowRadar:
             lons.max(), lats.max()
         )).ravel()
         self.poly = box(*self.extent)
+        # Simplified polyline of track
+        points = [Point(xy) for xy in zip(lons, lats)]
+        line = LineString(points)
+        # try to simplify the line with a tight tolerance (degrees)
+        self.line = line.simplify(tolerance=1e-6)
+        
 
     def get_surface(self, smooth=True):
         '''
@@ -174,26 +184,40 @@ class SnowRadar:
         surf_time = np.interp(surf_bin,np.arange(0,len(self.time_fast)),self.time_fast)
         return surf_bin , surf_time
     
-    def get_bounds(self, m_above = None, m_below = 2):
+    def get_bounds(self, m_above=None, m_below=2):
         '''
         Get bin numbers where there is valid data (non-nan)
-        A threshold can be supplied 
+        A threshold can be supplied
+
+        Arguments:
+            m_above: bin padding above the signal (?)
+            m_below: bin padding below the signal (?)
+
+        Outputs:
+            null_lower: the lower bin number bound for use in data-subsetting
+            null_upper: the upper bin number bound for use in data-subsetting
         
         '''
         if m_above:
-            null_lower = self.surf_bin.max()+(m_below/self.dfr).astype(int)
-            null_upper = self.surf_bin.min()-(m_above/self.dfr).astype(int)
+            null_lower = self.surf_bin.max() + (m_below / self.dfr).astype(int)
+            null_upper = self.surf_bin.min() - (m_above / self.dfr).astype(int)
         else:
             null_space = np.argwhere(np.isnan(self.data_radar))[:,0]
-            null_upper = null_space[null_space<self.surf_bin.min()].min()
-            null_lower = null_space[null_space>self.surf_bin.max()].max()
+            null_upper = null_space[null_space < self.surf_bin.min()].min()
+            null_lower = null_space[null_space > self.surf_bin.max()].max()
         return null_lower, null_upper
     
     def calcpulsewidth(self, oversample_num=1000, num_nyquist_ts=100):
         '''
-        bandwidth: radar bandwidth in hz
-        win: window function to be applied to the freq domain
-        os_num: the amount to oversample the nyquist by
+        Using the current SnowRadar instance's radar bandwidth (self.bandwidth),
+        calculate and set the values for the null-to-null pulse width (self.n2n)
+        and the equivalent pulse width (self.epw) 
+
+        The windowing process used is `signal.hann`
+
+        Arguments:
+            oversample_num: the bin-amount to oversample the nyquist by
+            num_nyquist_ts: the number of nyquist timestamps to use when windowing(?)
         
         '''
         # Time Vector
@@ -243,7 +267,15 @@ class SnowRadar:
     
     def decompress_data(self):
         '''
-        Ported by Josh King from CRESIS uncompress_echogram.m by John Paden
+        Ported to Python by Josh King from CRESIS uncompress_echogram MatLab code by John Paden:
+        https://data.cresis.ku.edu/data/loader/uncompress_echogram.m
+
+        For data that arrives already-compressed and with the self.trunc_bins data attribute,
+        decompress the radar data as well as the time array.
+
+        Outputs:
+            data_radar_decomp: 1D Numpy array of decompressed radar data
+            time_decomp: 1D Numpy array of decompressed time data
         '''
         Nz = self.elv_corr.max()
         Nt = Nz + len(self.trunc_bins)
@@ -257,7 +289,6 @@ class SnowRadar:
             t0 =  self.time_fast[self.trunc_bins[0]] - Nz * self.dft
         
         time_decomp = t0 + self.dft*np.arange(0, Nt-1)
-            
         return data_radar_decomp, time_decomp
     
     def elevation_compensation(self, perm_ice=3.15):
@@ -265,20 +296,13 @@ class SnowRadar:
         Ported by Josh King from CRESIS elevation_compensation.m by John Paden
         https://github.com/kingjml/pyWavelet/blob/master/pyWavelet/legacy/elevation_compensation.m
 
-        Inputs:
+
+        Arguments:
             perm_ice: The permittivity of ice (default 3.15)
 
         Outputs:
+            radar_comp: 2D numpy array of elevation-compensated radar data 
             elev_axis: elevation axis based on bin timing and an assumption of permittivity
-
-        Notes:
-            This will not work on instances of basic SnowRadar class 
-            since they do not have self.data_radar, self.time_utc, 
-            self.elevation, self.surface attributes
-
-            MikeB: might be worth investigating use of AbstractBaseClasses/Methods
-            or factory methods (https://stackoverflow.com/a/682545)
-            for the different inputs (AWI, OIB, CRESIS, NSIDC, etc.)
         '''        
         # Quick check for existance of non-null 'surface' data attribute 
         if self.surface is None:
@@ -319,11 +343,7 @@ class SnowRadar:
 
         def create_compensation(row_idx):
             ''' 
-            Bad function name because I don't know what it's doing
-            
-            Can probably be refactored
-            
-            JK: This function finds the ice interface and scales the time array depending on medium
+            This helper function finds the ice interface and scales the time array depending on medium
             '''
             e_val = self.elevation[row_idx]
             s_val = self.surface[row_idx]
@@ -360,13 +380,19 @@ class SnowRadar:
             
         # TODO: Make sure no data is nan
         # TODO: Adjust time axis
-        
         radar_comp[radar_comp == 0] = np.nan
         return radar_comp, elev_axis
 
-    def plot_quicklook(self, ylim = None):
+    def plot_quicklook(self, ylim=None):
+        '''
+        Generic plotting function to visualize the radar data for the 
+        current SnowRadar object instance
+
+        Arguments:
+            ylim: customize the upper bound of the plot
+        '''
         with np.errstate(divide='ignore', invalid='ignore'):
-                radar_sub = 10 * np.log10(self.data_radar)
+            radar_sub = 10 * np.log10(self.data_radar)
         fig, ax = plt.subplots(figsize=(9,7))
         im = ax.imshow(radar_sub, cmap='gist_gray')
         ax.set_title(
@@ -381,7 +407,7 @@ class SnowRadar:
         plt.show()
 
     def as_dict(self):
-        '''generic metadata for SnowRadar instance'''
+        '''Generic metadata for current SnowRadar instance'''
         return {
             'fname': self.file_name,
             'fpath': self.file_path,
@@ -389,7 +415,9 @@ class SnowRadar:
             'tstart': self.time_utc.min(),
             'tend': self.time_utc.max(),
             'poly': self.poly.wkt,
+            'line': self.line.wkt
         }
 
     def __str__(self):
+        '''Fancy string override'''
         return f'{self.data_type} Datafile: {self.file_name}'
