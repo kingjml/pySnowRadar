@@ -1,14 +1,14 @@
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+from datetime import datetime
 from scipy import signal
 from shapely.geometry import box, Point, LineString
 
 from . import matfunc, timefunc
+from .atm import ATM
 
 C = 299792458 # Vacuum speed of light
-QC_PITCH_MAX = 5 # Max ATM pitch in def
-QC_ROLL_MAX = 5 # Max ATM roll in deg
 
 # https://ops.cresis.ku.edu/wiki/index.php/Raw_File_Guide
 CRESIS_RAW_FILE_LUT = {
@@ -86,6 +86,7 @@ class SnowRadar:
         self.season = radar_dat['param_records']['season_name']
         self.mission = radar_dat['param_records']['cmd']['mission_names']
         self.day, self.segment = radar_dat['param_records']['day_seg'].split('_')
+        self.day = datetime.strptime(self.day, '%Y%m%d')
         self.gps_source = radar_dat['param_records']['gps_source']
 
         f0 = radar_dat['param_records']['radar']['wfs']['f0']
@@ -381,6 +382,55 @@ class SnowRadar:
         # TODO: Adjust time axis
         radar_comp[radar_comp == 0] = np.nan
         return radar_comp, elev_axis
+
+    def fetch_atm(self, atm_folder):
+        '''
+        Attempt to locate and load any locally-available NASA ATM data granules that share the same day
+        as the current SnowRadar object
+
+        Inputs:
+            atm_folder: the local directory where ATM granules should be located
+        
+        Outputs:
+            A dataframe containing concatenated ATM data (if multiple local ATM files exist)
+        '''
+        if not os.path.isdir(atm_folder):
+            raise FileNotFoundError('Cannot locate ATM folder: %s' % os.path.abspath(atm_folder))
+        
+        d = self.day.strftime('%Y%m%d')
+
+        # check for temporal match (same day as current SnowRadar data)
+        ## TODO: do ATM/SnowRadar datasets ever get gathered at night? If so, may need to be smarter about temporal matching
+        relevant_atm_data = [
+            ATM(os.path.join(r, f)) for f in fs if 
+            'ATM' in f and 
+            f.endswith('.h5') and 
+            f.split('_')[1] == d
+            for r, ds, fs in os.walk(atm_folder)
+        ]        
+        if len(relevant_atm_data) == 0:
+            print('No ATM data found for %s' % self.__str__())
+            return
+        
+        # check for spatial match (very rough due to simplicity of atm.bbox)
+        relevant_atm_data = [
+            atm for atm in relevant_atm_data
+            if atm.bbox.intersects(self.line)
+        ]
+        if len(relevant_atm_data) == 0:
+            print('No ATM data found for %s' % self.__str__())
+            return
+
+        # assuming we still have some ATM data after spatiotemporal filtering, we concatenate
+        df = pd.concat([
+            pd.DataFrame({
+                
+            })
+            for atm in relevant_atm_data
+        ])
+        
+
+
 
     def plot_quicklook(self, ylim=None):
         '''

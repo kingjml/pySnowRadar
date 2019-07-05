@@ -46,7 +46,7 @@ def qc_fast(sr, snow_depth):
     df['tag'] = sr.file_name
     return df
 
-def qc_htopo(sr, snow_depth):
+def qc_htopo(sr, htopo, snow_depth):
     '''
     Apply quality-control through use of pre-downloaded ATM data and by the following QC flags:
         QC1:    lack of ATM data for given trace

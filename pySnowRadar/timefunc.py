@@ -32,7 +32,7 @@ def atm_hhmmss_to_sec(hhmmss):
         a new 1D numpy array with time values in seconds since start of ATM granule
 
     NB: The L1B QFIT H5 granules appear to have strange float roundings
-    for their 'instrument_parameters/time_hhmmss' data
+    in some of theire 'instrument_parameters/time_hhmmss' data
     '''
     hour = (hhmmss - hhmmss % 1e4) / 1e4
     minute = (hhmmss - hour * 1e4)
