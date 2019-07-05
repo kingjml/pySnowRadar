@@ -53,8 +53,6 @@ def picklayers(data, null_2_space, delta_fast_time_range, n_snow, ref_snow_layer
 def cwt(data, wavelet, scales, precision=10):
     '''
     Implementation of the Continuous Wavelet Transform
-    
-    Ported to Python by Josh King based on MatLab code originally developed by Thomas Newman
 
     Arguments:
         data: preprocessed snowradar signal data
