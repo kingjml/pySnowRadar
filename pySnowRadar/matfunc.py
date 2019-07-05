@@ -9,9 +9,9 @@ import numpy as np
 
 def loadmat(filename):
     '''
-    this function should be called instead of direct spio.loadmat
+    this custom function should be called instead of direct spio.loadmat
     as it cures the problem of not properly recovering python dictionaries
-    from mat files. It calls the function check keys to cure all entries
+    from mat files. It calls the function check keys to convert all entries
     which are still mat-objects
     '''
     data = spio.loadmat(filename, struct_as_record=False, squeeze_me=True)
@@ -29,7 +29,7 @@ def _check_keys(in_dict):
 
 def _todict(matobj):
     '''
-    A recursive function which constructs nested dictionaries from matobjects 
+    A recursive function which constructs nested dictionaries from mat-objects 
     '''
     out_dict = {}
     for strg in matobj._fieldnames:
@@ -42,7 +42,26 @@ def _todict(matobj):
 
 
 def unified_loader(sr_obj):
-    '''Loads SnowRadar data files depending on filetype'''
+    '''
+    The entry-point called by the SnowRadar class, that determines 
+    how each different type of SnowRadar data file is parsed
+    
+    Currently operates in the following decision tree:
+
+    Does the data filename end in '.nc'?
+        Yes: Treat as a NSIDC OIB L1b NetCDF    - load using h5py
+        No: Can the scipy loadmat() function process the data file?
+            Yes: Treat as MatLab v5             - load using scipy 
+            No: Treat as MatLab v7 / AWI        - load using h5py
+
+    Arguments:
+        sr_obj: an instance of SnowRadar class
+
+    Output:
+        radar_dat: a dictionary containing the data extracted from 
+                   the input SnowRadar instance's source dataset (sr_obj.file_path)
+        
+    '''
     # Check for NSIDC NetCDF format first
     if sr_obj.file_path.endswith('.nc'):
         try:
@@ -67,11 +86,19 @@ def unified_loader(sr_obj):
 
 def h5py_to_dict(hdf5_obj, exclude_names=None):
     '''
-    For the HDF5-compliant SnowRadar datasets (OIB 2017, AWI), this reader method
-    works for the majority of the important data.
+    For the MatLab-but-HDF5-compliant SnowRadar datasets (OIB 2017, AWI), 
+    this reader method works for the majority of the important data.
 
-    There are still some HDF5-Object-References that do not get parsed for whatever
-    reason
+    There are still some HDF5-Object-References that do not get parsed 
+    for unknown reasons (possibly due to not catching certain variable-types)
+
+    Arguments:
+        hdf5_obj: an open h5py.File (preferably in read-mode)
+        exclude_names: a string or list of strings of specific top-level
+                       dataset categories to ignore
+
+    Output:
+        data: a dictionary containing the data extracted from hdf5_obj
     '''
     data = {}
     # Note that exclude_names can be tricky since it
@@ -137,8 +164,17 @@ NC_VAR_NAME_SWAP_LUT = {
 
 def nc_to_dict(hdf5_obj):
     '''
+    Using h5py, extract a subset of the input HDF dataset's 
+    attributes and data arrays
+
     NB: this is currently hardcoded to the current (Feb 26 2019)
-        NSIDC OIB L1b NetCDF datasets
+    NSIDC OIB L1b NetCDF datasets
+
+    Arguments:
+        hdf5_obj: an open h5py.File (preferably in read-mode)
+
+    Output:
+        data: a dictionary containing the data extracted from hdf5_obj
     '''
     data = {}
     # iterate through the netCDF, trying to convert to dict
