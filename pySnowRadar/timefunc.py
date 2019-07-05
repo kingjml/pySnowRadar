@@ -1,5 +1,5 @@
 from bisect import bisect
-from datetime import datetime, timedelta
+from datetime import datetime
 
 #Adapted from here https://stackoverflow.com/questions/33415475/how-to-get-current-date-and-time-from-gps-unsegment-time-in-python
 
@@ -19,3 +19,23 @@ def utcleap(gps_sec):
     '''converts gps time to utc time, accounting for leap years'''
     epoch_date = datetime.utcfromtimestamp(gps_sec)
     return gps_sec - bisect(LEAP_DATES, epoch_date)
+
+
+def atm_hhmmss_to_sec(hhmmss):
+    '''
+    Helper function for ATM granules
+    
+    Inputs:
+        hhmmss: 1D numpy array of time values in HHMMSS.ssssss since start of ATM granule
+
+    Outputs:
+        a new 1D numpy array with time values in seconds since start of ATM granule
+
+    NB: The L1B QFIT H5 granules appear to have strange float roundings
+    for their 'instrument_parameters/time_hhmmss' data
+    '''
+    hour = (hhmmss - hhmmss % 1e4) / 1e4
+    minute = (hhmmss - hour * 1e4)
+    minute = (minute - minute % 1e2) / 1e2
+    second = (hhmmss - hour * 1e4 - minute * 1e2)
+    return hour * 3600 + minute * 60 + second

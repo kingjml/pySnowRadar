@@ -1,6 +1,4 @@
 import os
-
-import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
@@ -136,8 +134,9 @@ class SnowRadar:
             self.time_fast = fast_times
             self.lat = lats
             self.lon = lons
-            self.roll = radar_dat['Roll']
-            self.pitch = radar_dat['Pitch']
+            # stored as radians, so we convert to degrees
+            self.roll = np.degrees(radar_dat['Roll'])
+            self.pitch = np.degrees(radar_dat['Pitch'])
             # Sometimes the surface is recorded in the matfile
             try:
                 self.surface = radar_dat['Surface']
