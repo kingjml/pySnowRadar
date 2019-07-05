@@ -2,7 +2,12 @@ import os
 import h5py
 from datetime import datetime
 
+from shapely.geometry import box
+
 from . import timefunc
+
+# https://nsidc.org/data/ILATM1B/versions/2#title2
+TRANSCEIVER_LUT = {'T2': 15, 'T3': 23, 'T4': 30}
 
 class ATM:
     '''
@@ -18,6 +23,9 @@ class ATM:
             raise FileNotFoundError(self.file_path)
         file_date = self.file_name.split('_')[1]
         self.day = datetime.strptime(file_date, '%Y%m%d')
+        self.instrument = self.file_name.split('.')[1][:5]
+        self.transceiver = self.file_name.split('.')[1][-2:]
+        self.scan_angle = TRANSCEIVER_LUT.get(self.transceiver)
         ## may be more useful to people
         #file_datetime = ''.join(self.file_name.split('_')[1:3]).split('.')[0]
         #self.start_time = datetime.strptime(file_datetime, '%Y%m%d%H%M%S')
@@ -36,6 +44,11 @@ class ATM:
             self.time_gps = timefunc.atm_hhmmss_to_sec(
                src['instrument_parameters/time_hhmmss'][()]
             )
+            # retrieve a rough bounding box
+            self.bbox = box(*[
+                src[f'ancillary_data/{key}'][()][0]
+                for key in ['min_longitude', 'min_latitude', 'max_longitude', 'max_latitude']
+            ])
     
     def __str__(self):
         return f'{self.data_type} Datafile: {self.file_name}'
