@@ -32,22 +32,24 @@ def qc_fast(sr, snow_depth):
     '''
     QC1 = abs(sr.pitch) < QC_PITCH_MAX
     QC2 = abs(sr.roll) < QC_ROLL_MAX
-    QC3 = snow_depth < QC_DEPTH_MAX
+    QC3 = np.logical_and(0 < snow_depth, snow_depth < QC_DEPTH_MAX)
 
-    mask = QC1 * QC2 * QC3
-
-    qc_snow_depth = snow_depth.copy()
-    qc_snow_depth[~mask] = np.nan
+    # convert bool to float (True/False to 1.0/0.0)
+    mask = (QC1 * QC2 * QC3).astype(float)
+    # swap 0.0 for NaN
+    mask[mask == 0] = np.nan
 
     df = pd.DataFrame({
         'snow_depth': snow_depth,
-        'snow_depth_QC': qc_snow_depth
+        'snow_depth_QC': snow_depth * mask
     })
     df['tag'] = sr.file_name
     return df
 
 def qc_htopo(sr, htopo, snow_depth):
     '''
+    ***heavily WIP state***
+
     Apply quality-control through use of pre-downloaded ATM data and by the following QC flags:
         QC1:    lack of ATM data for given trace
         QC2:    ATM data is available, but too far away from SnowRadar data (?)
@@ -74,10 +76,5 @@ def qc_htopo(sr, htopo, snow_depth):
     if len(atm_data == 0):
         print(f'***Error: No ATM data found for date: {sr.day}')
         return
-
-    
-
-
-
     QC3 = np.logical_or(abs(sr.pitch) < QC_PITCH_MAX, abs(sr.roll) < QC_ROLL_MAX)
     
