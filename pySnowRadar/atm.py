@@ -4,8 +4,6 @@ from datetime import datetime
 
 from shapely.geometry import box
 
-from . import timefunc
-
 # https://nsidc.org/data/ILATM1B/versions/2#title2
 TRANSCEIVER_LUT = {'T2': 15, 'T3': 23, 'T4': 30}
 
@@ -41,7 +39,7 @@ class ATM:
             self.longitude = ((src['longitude'][()] - 180) % 360) - 180
             self.elevation = src['elevation'][()]
             # convert time in HHMMSS.ssssss to seconds-since-start-of-day
-            self.time_gps = timefunc.atm_hhmmss_to_sec(
+            self.time_gps = hhmmss_to_sec(
                src['instrument_parameters/time_hhmmss'][()]
             )
             # retrieve a rough bounding box
@@ -49,7 +47,27 @@ class ATM:
                 src[f'ancillary_data/{key}'][()][0]
                 for key in ['min_longitude', 'min_latitude', 'max_longitude', 'max_latitude']
             ])
-    
+
     def __str__(self):
         return f'{self.data_type} Datafile: {self.file_name}'
+
+
+def hhmmss_to_sec(hhmmss):
+    '''
+    Helper function for ATM granules
+    
+    Inputs:
+        hhmmss: 1D numpy array of time values in HHMMSS.ssssss since start of ATM granule
+
+    Outputs:
+        a new 1D numpy array with time values in seconds since start of ATM granule
+
+    NB: The L1B QFIT H5 granules appear to have strange float roundings
+    in some of their 'instrument_parameters/time_hhmmss' data
+    '''
+    hour = (hhmmss - hhmmss % 1e4) / 1e4
+    minute = (hhmmss - hour * 1e4)
+    minute = (minute - minute % 1e2) / 1e2
+    second = (hhmmss - hour * 1e4 - minute * 1e2)
+    return hour * 3600 + minute * 60 + second
     
