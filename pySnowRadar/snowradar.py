@@ -1,13 +1,11 @@
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 from datetime import datetime
 from scipy import signal
 from shapely.geometry import box, Point, LineString
 
 from . import matfunc, timefunc
-from .atm import ATM
 
 C = 299792458 # Vacuum speed of light
 
@@ -383,64 +381,6 @@ class SnowRadar:
         # TODO: Adjust time axis
         radar_comp[radar_comp == 0] = np.nan
         return radar_comp, elev_axis
-
-    def fetch_atm(self, atm_folder):
-        '''
-        Attempt to locate and load any locally-available NASA ATM data granules 
-        that share the same day as the current SnowRadar object
-
-        Inputs:
-            atm_folder: the local directory where ATM granules should be located
-        
-        Outputs:
-            A dataframe containing concatenated ATM data (if multiple local ATM files exist)
-        '''
-        if not os.path.isdir(atm_folder):
-            raise FileNotFoundError('Cannot locate ATM folder: %s' % os.path.abspath(atm_folder))
-
-        # check for temporal match (same day as current SnowRadar data)
-        ## TODO: do ATM/SnowRadar datasets ever get gathered at night? If so, may need to be smarter about temporal matching
-        d = self.day.strftime('%Y%m%d')
-        relevant_atm_data = [
-            ATM(os.path.join(r, f)) 
-            for r, ds, fs in os.walk(atm_folder) 
-            for f in fs if 
-            'ATM' in f and 
-            f.endswith('.h5') and 
-            f.split('_')[1] == d
-        ]
-        if len(relevant_atm_data) == 0:
-            print('No ATM data found for %s' % self.__str__())
-            return
-        
-        # check for spatial match (very rough due to simplicity of atm.bbox)
-        relevant_atm_data = [
-            atm for atm in relevant_atm_data
-            if atm.bbox.intersects(self.line)
-        ]
-        if len(relevant_atm_data) == 0:
-            print('No ATM data found for %s' % self.__str__())
-            return
-
-        # assuming we still have some ATM data after spatiotemporal filtering, 
-        # we sort by filename and concatenate into one big dataframe
-        relevant_atm_data.sort(key=lambda x: x.file_name)
-        df = pd.concat([
-            pd.DataFrame({
-                'atm_src': [atm.file_name]*len(atm.pitch),
-                'atm_lat': atm.latitude,
-                'atm_lon': atm.longitude,
-                'atm_elev': atm.elevation,                
-                'atm_pitch': atm.pitch,
-                'atm_roll': atm.roll,
-                'atm_time_gps': atm.time_gps
-            })
-            for atm in relevant_atm_data
-        ]).reset_index(drop=True)
-        return df
-        
-
-
 
     def plot_quicklook(self, ylim=None):
         '''

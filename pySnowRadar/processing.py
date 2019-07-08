@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from pySnowRadar.picklayers import picklayers
 from pySnowRadar.snowradar import SnowRadar
+from pySnowRadar.atm import ATM
 
 
 def geo_filter(input_sr_data):
@@ -194,4 +195,58 @@ def batch_process(input_sr_data, snow_density=0.3, workers=4, dump_results=True)
         results = [f.result() for f in futures]
     # return a concatenated dataframe containing results for all input datasets
     df = pd.concat(results)
+    return df
+
+def fetch_atm_data(sr, atm_folder):
+    '''
+    Attempt to find and load any locally-available NASA ATM data granules 
+    that share the same day as the passed SnowRadar object
+
+    Inputs:
+        atm_folder: the local directory where ATM granules should be found
+    
+    Outputs:
+        A dataframe containing concatenated ATM data (if multiple local ATM files exist)
+    '''
+    if not os.path.isdir(atm_folder):
+        raise FileNotFoundError('Cannot locate ATM folder: %s' % os.path.abspath(atm_folder))
+
+    # check for temporal match (same day as current SnowRadar data)
+    d = sr.day.strftime('%Y%m%d')
+    relevant_atm_data = [
+        ATM(os.path.join(r, f)) 
+        for r, ds, fs in os.walk(atm_folder) 
+        for f in fs if 
+        'ATM' in f and 
+        f.endswith('.h5') and 
+        f.split('_')[1] == d
+    ]
+    if len(relevant_atm_data) == 0:
+        print('No ATM data found for %s' % str(sr))
+        return
+    
+    # check for spatial match (very rough due to simplicity of atm.bbox)
+    relevant_atm_data = [
+        atm for atm in relevant_atm_data
+        if atm.bbox.intersects(sr.line)
+    ]
+    if len(relevant_atm_data) == 0:
+        print('No ATM data found for %s' % str(sr))
+        return
+
+    # assuming we still have some ATM data after spatiotemporal filtering, 
+    # we sort by filename and concatenate into one big dataframe
+    relevant_atm_data.sort(key=lambda x: x.file_name)
+    df = pd.concat([
+        pd.DataFrame({
+            'atm_src': [atm.file_name]*len(atm.pitch),
+            'atm_lat': atm.latitude,
+            'atm_lon': atm.longitude,
+            'atm_elev': atm.elevation,                
+            'atm_pitch': atm.pitch,
+            'atm_roll': atm.roll,
+            'atm_time_gps': atm.time_gps
+        })
+        for atm in relevant_atm_data
+    ]).reset_index(drop=True)
     return df
