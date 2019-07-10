@@ -126,7 +126,7 @@ def h5py_to_dict(hdf5_obj, exclude_names=None):
                     data[k] = v[()].astype(bool).item()
                 # empty attribute stored as 2-element array of type uint64
                 elif v[()].dtype == 'uint64' and v[()].shape == (2,):
-                    data[k] == None
+                    data[k] = None
             else:
                 # need to convert HDF object references into actual data
                 dtype = v[()].dtype
@@ -159,7 +159,7 @@ NC_VAR_NAME_SWAP_LUT = {
     'fasttime': 'Time',
     'altitude': 'Elevation', # the NSIDC user guide lists elevation as 'alt'
     'alt': 'Elevation',      # but the downloaded NC file uses 'altitude'
-    'time': 'UTC_Time'
+    'time': 'UTC_time'
 }
 
 def nc_to_dict(hdf5_obj):
