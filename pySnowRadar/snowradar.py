@@ -183,7 +183,7 @@ class SnowRadar:
         surf_time = np.interp(surf_bin,np.arange(0,len(self.time_fast)),self.time_fast)
         return surf_bin , surf_time
     
-    def get_bounds(self, m_above=None, m_below=2):
+    def get_bounds(self, m_above=None, m_below=5):
         '''
         Get bin numbers where there is valid data (non-nan)
         A threshold can be supplied
