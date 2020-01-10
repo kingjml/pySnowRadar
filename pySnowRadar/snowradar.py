@@ -1,7 +1,7 @@
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 from scipy import signal
 from shapely.geometry import box, Point, LineString
 
@@ -21,7 +21,6 @@ CRESIS_RAW_FILE_LUT = {
     'snow10': 'OIB_MAT'
 }
 
-# TODO overload the class so it can except botht the .mat and NC snow radar files
 class SnowRadar:
     '''
     Python representation of a <proper-name-of-snowradar-instrument> dataset
@@ -101,8 +100,11 @@ class SnowRadar:
         lons = radar_dat['Longitude']
         gps_times = radar_dat['GPS_time']
         # NSIDC netCDF files store UTC-time already
+        # but apparently only in seconds-since-beginning-of-day! Argh!
         try:
-            utc_times = radar_dat['UTC_time'] 
+            utc_times = np.asarray([
+                np.floor((self.day + timedelta(seconds=t)).timestamp()) for t in radar_dat['UTC_time']
+            ])
         # OIB/AWI matfiles do not!
         except KeyError:
             utc_times = np.asarray([timefunc.utcleap(gps) for gps in gps_times])
