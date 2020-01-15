@@ -50,7 +50,6 @@ def Wavelet_TN(data, null_2_space, delta_fast_time_range, n_snow, ref_snow_layer
     
     locs_si = np.argmax(-sum_lin_coefs)
     locs_as = np.argmax(-sum_log_coefs)
-    print(f'locs_as: {locs_as} {type(locs_as)}')
     return locs_as, locs_si
 
 def cwt(data, wavelet, scales, precision):
