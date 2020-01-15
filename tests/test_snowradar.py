@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from pySnowRadar.snowradar import SnowRadar
+from pySnowRadar import SnowRadar
 
 # test the main SnowRadar class by itself plus the OIB and AWI subclasses
 TEST_DATA_ROOT = Path(__file__).parent.parent / 'pySnowRadar' / 'data'
