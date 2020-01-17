@@ -1,4 +1,3 @@
-import numpy as np
 from pySnowRadar.algorithms import GSFC_NK, NSIDC, Wavelet_TN
 
 def pick_layers(data, params, picker_func='Wavelet-TN'):
@@ -7,7 +6,8 @@ def pick_layers(data, params, picker_func='Wavelet-TN'):
 
     Arguments:
         data: 1D numpy array representing a single snowradar trace
-        params: dictionary containing enough key-value pairs for the chosen picker to operate properly
+        params: dictionary containing enough key-value pairs for the chosen picker 
+                to operate properly
         picker_func: string denoting which picker to use. Currently supporting:
             Wavelet-TN -> default
             NSIDC -> placeholder
@@ -27,8 +27,8 @@ def pick_layers(data, params, picker_func='Wavelet-TN'):
                 params['n2n'],
                 params['dfr'],
                 params['n_snow'],
-                params.get('ref_snow_layer', 1), # if no ref_snow_layer found, use default of 1
-                params.get('cwt_precision', 10) # if no cwt_precision found, use default of 10
+                params.get('ref_snow_layer', 1), # if no ref_snow_layer given, use default of 1
+                params.get('cwt_precision', 10) # if no cwt_precision given, use default of 10
             )
         except KeyError:
             raise Exception('Missing or invalid parameters supplied for Wavelet-TN picker')
@@ -47,9 +47,9 @@ def pick_layers(data, params, picker_func='Wavelet-TN'):
         except KeyError:
             raise Exception('Missing or invalid parameters supplied for GSFC-NK picker')
     else:
-        raise ValueError('Chosen picker unsupported. Must be one of ["Wavelet_TN", "NSIDC", "GSFC_NK]')
+        raise ValueError(
+            'Chosen picker "%s" unsupported. ' % picker_func +\
+            'Must be one of ["Wavelet_TN", "NSIDC", "GSFC_NK]'
+        )
     
     return airsnow_layer, snowice_layer
-
-if __name__ == '__main__':
-    print(pick_layers(np.linspace(0,25,25), {'n2n':0}, 'NSIDC'))
