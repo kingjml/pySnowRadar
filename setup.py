@@ -8,7 +8,7 @@ setup(
     version='0.0.1',
     author='Climate Research Division',
     author_email='',
-    description='A Python package to process data from CRESIS SnowRadar systems.',
+    description='A Python package to process data from CRESIS SnowRadar systems',
     license='MIT',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -24,7 +24,6 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Operating System :: Microsoft :: Windows',
         'Operating System :: POSIX :: Linux',
-        'Operating System :: MacOS :: MacOS X',
         'Programming Language :: Python :: 3 :: Only',
         'Topic :: Scientific/Engineering'
     ],
@@ -47,7 +46,6 @@ setup(
     },
     keywords='snowradar',
     project_urls={
-        'Documentation': '',
         'Source': 'https://github.com/kingjml/pySnowRadar',
         'Tracker': 'https://github.com/kingjml/pySnowRadar/issues',
     },
