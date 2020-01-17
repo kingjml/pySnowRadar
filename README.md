@@ -4,59 +4,72 @@
 
 # pySnowRadar
 
-A python package to process data from CRESIS SnowRadar systems.
+A Python3 package to process data from CRESIS SnowRadar systems. 
 
+## Basic Installation
 
+### For Windows Users
 
+On Windows, there is usually some pain and suffering while managing the various geospatial dll linkages, so we recommend using [Anaconda](https://www.anaconda.com/distribution/) (specifically Miniconda) to install the required geospatial libraries *before* installing pySnowRadar:
 
-## Usage and development instructions
+Download and install Miniconda: 
+- https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe
 
-### 1) Fork and/or Clone this repository
+Either in the default `(base)` conda environment or a new environment, pre-install the geospatial library requirements:
 
-Do it.
-
-### 2) Python environment creation
-
-Get conda installed if you don't have it already:
-```
-# Windows x64 exe installer
-https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe
-# Linux x64 sh installer
-curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-# MacOSX x64 pkg installer
-https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.pkg
-```
+ ```
+ # this should pull in shapely, fiona and pyproj with proper linking
+ conda install geopandas
+ ```
+ Then try installing pySnowRadar from PyPI which will bring with it any other package dependencies:
 
 ```
-conda env create -f requirements.yml
-conda activate py3-pySnowRadar
+pip install pySnowRadar
 ```
 
-### 3) Installing `pySnowRadar`
+### For Linux Users
+
+`text goes here for any linux-specific instructions`
+
+## Usage
+
+Check out the Jupyter notebook examples for usage scenarios and code snippets:
+
+ - [Batch-processing of multiple NSIDC L1b SnowRadar products](https://github.com/kingjml/pySnowRadar/notebooks/batch_process_example.ipynb)
+ - [Layer retrieval test of AWI SnowRadar product](https://github.com/kingjml/pySnowRadar/notebooks/retrieval_test_awi.ipynb)
+ - [Layer retrievel test of OIB SnowRadar product](https://github.com/kingjml/pySnowRadar/blob/mike-dev/notebooks/retrieval_test_awi.ipynb)
+
+## Development and Contributing
+
+The following instructions are suitable for users who would like to modify the inner workings of pySnowRadar.
+
+Clone this repository to your machine:
+  ```
+  git clone https://github.com/kingjml/pySnowRadar.git
+  ```
+Create a new branch where your modifications will reside:
+  ```
+  git checkout -b new_feature
+  ```
+After you make your modifications, you can reinstall pySnowRadar using your local clone by using `pip` from within the local clone of the github repository:
+
+  ```
+  # Make sure you're in the proper python environment!
+  pip install . --upgrade
+  ```
+
+###  "Same-Env" installation
+
+For convenience, we also provide `exact_dev_env.yml` that mirrors the `conda` environment used to develop pySnowRadar. If you encounter issues with the other installation steps, you may replicate our environment using the following commands using `conda` and `pip`:
 
 ```
-cd /path/to/pySnowRadar/project/root/dir
-conda activate py3-pySnowRadar # skip this if you're coming from Step 2
-pip install . 
+(base) $ conda env create -f exact_dev_env.yml
+(base) $ conda activate py3-pySnowRadar
+(py3-pySnowRadar) $ pip install pySnowRadar
 ```
 
-Now you can import the `pySnowRadar` module and its associated submodules, or checkout the jupyter notebooks within this repo.
-
-### Development notes
-
-Remember to re-install `pySnowRadar` to your environment after you've made changes to the code with:
-```
-pip install . --upgrade
-```
-... assuming that you're inside the branch's root directory.
-
-### (Optional) Unit Testing
-#### Setup
-
-```
-cd /path/to/pySnowRadar/project/root/dir
-```
-Test files are stored under the `tests` subdirectory
+## (Optional) Test-running
+Test files are stored under the `tests` subdirectory and require the `pytest` and `coverage` packages.
 
 #### Running tests
 
