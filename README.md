@@ -23,19 +23,35 @@ Either in the default `(base)` conda environment or a new environment, pre-insta
  ```
  Then try installing pySnowRadar from PyPI which will bring with it any other package dependencies:
 
-```
-pip install pySnowRadar
-```
+ ```
+ pip install pySnowRadar
+ ```
 
 ### For Linux Users
 
-`text goes here for any linux-specific instructions`
+On Linux, the only requirement is you must have the Geospatial Data Abstraction Library (gdal) installed before using pySnowRadar. If you have root privileges, it is possible to install gdal at the system level using `apt`:
+
+ ```
+ sudo apt install gdal-bin
+ ```
+
+If you do not have root access, you may use `conda` to install gdal into the python environment:
+
+ ```
+ conda install gdal
+ ```
+
+After installing gdal, you may install pySnowRadar from PyPI which will automatically pull in the other package dependencies:
+
+ ```
+ pip install pySnowRadar
+ ```
 
 ## Usage
 
 Check out the Jupyter notebook examples for usage scenarios and code snippets:
 
- - [Batch-processing of multiple NSIDC L1b SnowRadar products](https://github.com/kingjml/pySnowRadar/notebooks/batch_process_example.ipynb)
+ - [Batch-processing of multiple NSIDC L1b Deconvoluted SnowRadar products](https://github.com/kingjml/pySnowRadar/notebooks/batch_process_example.ipynb)
  - [Layer retrieval test of AWI SnowRadar product](https://github.com/kingjml/pySnowRadar/notebooks/retrieval_test_awi.ipynb)
  - [Layer retrievel test of OIB SnowRadar product](https://github.com/kingjml/pySnowRadar/blob/mike-dev/notebooks/retrieval_test_awi.ipynb)
 
