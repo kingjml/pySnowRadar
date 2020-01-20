@@ -6,7 +6,7 @@ package:
 
 source:
   url: https://github.com/kingjml/pySnowRadar/archive/{{ version }}.tar.gz
-  sha: sha-goes-here
+  sha: pip-sha-goes-here
 
 requirements:
   build:
