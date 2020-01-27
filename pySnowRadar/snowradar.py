@@ -1,16 +1,13 @@
 import os
-
-import h5py
 import matplotlib.pyplot as plt
 import numpy as np
+from datetime import datetime, timedelta
 from scipy import signal
 from shapely.geometry import box, Point, LineString
 
 from . import matfunc, timefunc
 
 C = 299792458 # Vacuum speed of light
-QC_PITCH_MAX = 5 # Max ATM pitch in def
-QC_ROLL_MAX = 5 # Max ATM roll in deg
 
 # https://ops.cresis.ku.edu/wiki/index.php/Raw_File_Guide
 CRESIS_RAW_FILE_LUT = {
@@ -24,7 +21,6 @@ CRESIS_RAW_FILE_LUT = {
     'snow10': 'OIB_MAT'
 }
 
-# TODO overload the class so it can except botht the .mat and NC snow radar files
 class SnowRadar:
     '''
     Python representation of a <proper-name-of-snowradar-instrument> dataset
@@ -88,6 +84,7 @@ class SnowRadar:
         self.season = radar_dat['param_records']['season_name']
         self.mission = radar_dat['param_records']['cmd']['mission_names']
         self.day, self.segment = radar_dat['param_records']['day_seg'].split('_')
+        self.day = datetime.strptime(self.day, '%Y%m%d')
         self.gps_source = radar_dat['param_records']['gps_source']
 
         f0 = radar_dat['param_records']['radar']['wfs']['f0']
@@ -103,8 +100,11 @@ class SnowRadar:
         lons = radar_dat['Longitude']
         gps_times = radar_dat['GPS_time']
         # NSIDC netCDF files store UTC-time already
+        # but apparently only in seconds-since-beginning-of-day! Argh!
         try:
-            utc_times = radar_dat['UTC_time'] 
+            utc_times = np.asarray([
+                np.floor((self.day + timedelta(seconds=t)).timestamp()) for t in radar_dat['UTC_time']
+            ])
         # OIB/AWI matfiles do not!
         except KeyError:
             utc_times = np.asarray([timefunc.utcleap(gps) for gps in gps_times])
@@ -136,8 +136,9 @@ class SnowRadar:
             self.time_fast = fast_times
             self.lat = lats
             self.lon = lons
-            self.roll = radar_dat['Roll']
-            self.pitch = radar_dat['Pitch']
+            # stored as radians, so we convert to degrees
+            self.roll = np.degrees(radar_dat['Roll'])
+            self.pitch = np.degrees(radar_dat['Pitch'])
             # Sometimes the surface is recorded in the matfile
             try:
                 self.surface = radar_dat['Surface']

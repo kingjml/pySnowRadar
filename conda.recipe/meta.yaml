@@ -1,0 +1,47 @@
+{% set name = "pySnowRadar" %}
+{% set version = "0.0.1" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: ../dist/{{ name }}-{{ version }}.tar.gz
+
+build:
+  number: 0
+  noarch: generic
+  skip: True # [py==38]
+  
+requirements:
+  build:
+    - python
+    - pip
+    - setuptools
+  run:
+    - python >=3,<3.8
+    - gdal >=2.3.3
+    - h5py >=2.9
+    - matplotlib >=3.1
+    - numpy >=1.16
+    - pywavelets >=1
+    - shapely >=1.6.4
+    - scipy >=1.2.1
+    - pandas >=0.24.2
+    - geopandas >=0.4.1
+    - pyproj >=1.9.6
+
+test:
+  imports:
+    - {{ name }}
+
+about:
+  home: https://github.com/kingjml/pySnowRadar
+  license: MIT
+  license_file: ../LICENSE
+  summary: 'A Python package to process data from CRESIS SnowRadar systems'
+  license_family: MIT
+
+extra:
+  recipe-maintainers:
+    - m9brady

@@ -1,5 +1,5 @@
 from bisect import bisect
-from datetime import datetime, timedelta
+from datetime import datetime
 
 #Adapted from here https://stackoverflow.com/questions/33415475/how-to-get-current-date-and-time-from-gps-unsegment-time-in-python
 
