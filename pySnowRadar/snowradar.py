@@ -1,5 +1,6 @@
 import os
 import matplotlib.pyplot as plt
+import warnings
 import numpy as np
 from datetime import datetime, timedelta
 from scipy import signal
@@ -89,7 +90,12 @@ class SnowRadar:
 
         f0 = radar_dat['param_records']['radar']['wfs']['f0']
         f1 = radar_dat['param_records']['radar']['wfs']['f1']
-        fmult = radar_dat['param_records']['radar']['wfs']['fmult']
+        try:
+            fmult = radar_dat['param_records']['radar']['wfs']['fmult']
+        except KeyError:
+            # OIB 2019 matfiles don't contain fmult 
+            warnings.warn('No value for fmult found, using fmult = 1', UserWarning)
+            fmult = 1.0
         if self.data_type == 'AWI_MAT':
             # AWI mat files store 2 values for f0, f1 and fmult
             # Here we force the script to use the 2nd value
