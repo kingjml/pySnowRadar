@@ -2,7 +2,7 @@ import numpy as np
 
 def NSIDC(data):
     '''
-    Picker algorithm by NSIDC Boulder
+    This is a placeholder for the NASA Goddard product hosted at NSIDC.
 
     Arguments must include the snowradar trace data itself (passed as a 1D float array) as well as 
     any parameters required by the algorithm for layer-picking
