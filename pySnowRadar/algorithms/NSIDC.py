@@ -13,5 +13,5 @@ def NSIDC(data):
     
     '''
     as_pick = np.int64(0)
-    si_pick = np.int64(0)
+    si_pick = np.int64(1)
     return as_pick, si_pick

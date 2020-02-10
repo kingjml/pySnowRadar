@@ -20,7 +20,7 @@ def test_wavelet_tn():
     airsnow, snowice = results
     assert type(airsnow) == np.int64
     assert type(snowice) == np.int64
-    assert snowice > airsnow or snowice == airsnow
+    assert snowice > airsnow
 
 def test_gsfc_nk():
     results = GSFC_NK(data)
@@ -28,7 +28,7 @@ def test_gsfc_nk():
     airsnow, snowice = results
     assert type(airsnow) == np.int64
     assert type(snowice) == np.int64
-    assert snowice > airsnow or snowice == airsnow
+    assert snowice > airsnow
 
 def test_nsidc():
     results = NSIDC(data)
@@ -36,4 +36,4 @@ def test_nsidc():
     airsnow, snowice = results
     assert type(airsnow) == np.int64
     assert type(snowice) == np.int64
-    assert snowice > airsnow or snowice == airsnow
+    assert snowice > airsnow
