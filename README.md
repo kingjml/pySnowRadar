@@ -22,6 +22,11 @@ Check out the Jupyter notebook examples for usage scenarios and code snippets:
  - [Batch-processing of multiple NSIDC L1b Deconvoluted SnowRadar products](./notebooks/batch_process_example.ipynb)
  - [Layer retrieval test of AWI SnowRadar product](./notebooks/retrieval_test_awi.ipynb)
  - [Layer retrievel test of OIB SnowRadar product](./notebooks/retrieval_test_oib.ipynb)
+ 
+pySnowRadar does not validate interface or snow depth estimates. It is highly recommended that users compare outputs with measurements or references to quantify errors. Users should consider uncertainties including but not limited to surface roughness, salinity, and sidelobes.
+
+For reference, the following papers (not an exhaustive list) describe uncertainties involved with the handling of SnowRadar data: [Panzer et al. (2013)]( https://www.cambridge.org/core/journals/journal-of-glaciology/article/an-ultrawideband-microwave-radar-for-measuring-snow-thickness-on-sea-ice-and-mapping-nearsurface-internal-layers-in-polar-firn/FF5CAF1FE9DBAD5847FF41995C1B1926), [Newman et al. (2014)](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2014JC010284), [Webster et al. (2014)](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2014JC009985), [King et al. (2015)](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2015GL066389), [Kwok et al. (2017)]( https://www.the-cryosphere.net/11/2571/2017/) 
+
 
 ## Development and Contributing
 
