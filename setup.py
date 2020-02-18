@@ -19,13 +19,13 @@ setup(
         # Trove classifiers
         # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
         'Development Status :: 5 - Production/Stable',
-        'Intended Audience :: Education',
+        'Topic :: Scientific/Engineering'
         'Intended Audience :: Science/Research',
+        'Intended Audience :: Education',
         'License :: OSI Approved :: MIT License',
         'Operating System :: Microsoft :: Windows',
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python :: 3 :: Only',
-        'Topic :: Scientific/Engineering'
     ],
     python_requires='>=3,<3.8',
     install_requires=[
