@@ -5,10 +5,10 @@ with open('README.md', 'r') as readme:
 
 setup(
     name='pySnowRadar',
-    version='0.0.1',
+    version='1.0.1',
     author='Climate Research Division',
     author_email='',
-    description='A Python package to process data from CRESIS SnowRadar systems',
+    description='A Python3 package to process data from CRESIS SnowRadar systems',
     license='MIT',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -18,14 +18,14 @@ setup(
     classifiers=[
         # Trove classifiers
         # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
-        'Development Status :: 3 - Alpha',
-        'Intended Audience :: Education',
+        'Development Status :: 5 - Production/Stable',
+        'Topic :: Scientific/Engineering'
         'Intended Audience :: Science/Research',
+        'Intended Audience :: Education',
         'License :: OSI Approved :: MIT License',
         'Operating System :: Microsoft :: Windows',
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python :: 3 :: Only',
-        'Topic :: Scientific/Engineering'
     ],
     python_requires='>=3,<3.8',
     install_requires=[
