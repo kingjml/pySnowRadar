@@ -11,7 +11,7 @@ jobs:
         python-version: [3.5, 3.6, 3.7]
     steps:
     - uses: actions/checkout@v2
-    - name: Set up env (Python ${{ matrix.python-version }})
+    - name: setup and test (Python ${{ matrix.python-version }})
       uses: goanpeca/setup-miniconda@v1
       with:
         miniconda-version: 'latest'
@@ -20,15 +20,10 @@ jobs:
         python-version: ${{ matrix.python-version }}
         environment-file: requirements.yml
         activate-environment: py3-pySnowRadar
-    - shell: bash -l {0}
       run: |
         conda info
         conda list
-    - name: Install pySnowRadar
-      run: |
         pip install . -vv
-    - name: Test with pytest
-      run: |
         pytest
 
   win:
@@ -39,7 +34,7 @@ jobs:
         python-version: [3.5, 3.6, 3.7]
     steps:
     - uses: actions/checkout@v2
-    - name: Set up env (Python ${{ matrix.python-version }})
+    - name: setup and test (Python ${{ matrix.python-version }})
       uses: goanpeca/setup-miniconda@v1
       with:
         miniconda-version: 'latest'
@@ -48,15 +43,10 @@ jobs:
         python-version: ${{ matrix.python-version }}
         environment-file: requirements.yml
         activate-environment: py3-pySnowRadar
-    - shell: pwsh
       run: |
         conda info
         conda list
-    - name: Install pySnowRadar
-      run: |
         pip install . -vv
-    - name: Test with pytest
-      run: |
         pytest
 
   mac:
@@ -76,13 +66,8 @@ jobs:
         python-version: ${{ matrix.python-version }}
         environment-file: requirements.yml
         activate-environment: py3-pySnowRadar
-    - shell: sh -l {0}
       run: |
         conda info
         conda list
-    - name: Install pySnowRadar
-      run: |
         pip install . -vv
-    - name: Test with pytest
-      run: |
         pytest
