@@ -1,0 +1,61 @@
+name: Test Build
+
+on: [push]
+
+jobs:
+  linux:
+    name: build (Ubuntu, ${{ matrix.python-version }})
+    runs-on: 'ubuntu-latest'
+    strategy:
+      matrix:
+        python-version: [3.5, 3.6, 3.7]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup build env (Python ${{ matrix.python-version }})
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install wheel
+      run: |
+        python -m pip install wheel --user
+    - name: Build the source dist and wheel
+      run: |
+        python setup.py sdist bdist_wheel
+
+  win:
+    name: pytest (Windows, ${{ matrix.python-version }})
+    runs-on: 'windows-latest'
+    strategy:
+      matrix:
+        python-version: [3.5, 3.6, 3.7]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup build env (Python ${{ matrix.python-version }})
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install wheel
+      run: |
+        python -m pip install wheel --user
+    - name: Build the source dist and wheel
+      run: |
+        python setup.py sdist bdist_wheel
+
+  mac:
+    name: pytest (Mac, ${{ matrix.python-version }})
+    runs-on: 'macos-latest'
+    strategy:
+      matrix:
+        python-version: [3.5, 3.6, 3.7]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup build env (Python ${{ matrix.python-version }})
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install wheel
+      run: |
+        python -m pip install wheel --user
+    - name: Build the source dist and wheel
+      run: |
+        python setup.py sdist bdist_wheel
