@@ -10,41 +10,32 @@ QC_ROLL_MAX = 5     # Max allowable roll (deg)
 QC_DEPTH_MAX = 1.5  # Max allowable snow depth (m) (?)
 QC_ELEV_MAX = 0.55  # Max allowable elevation for htopo data (m)
 QC_MAX_DIST = 500   # Max allowable distance from nadir (m). For cropping ATM data (?)
-N_RANGE_BINS = 100  # Number of noise range bins to sample
 
 
-def qc_fast(sr, snow_depth):
+def error_check(sr, **kwargs):
     '''
-    Apply quality-control without the use of ATM data by the following QC flags:
-        QC1:    pitch outside allowable range
-        QC2:    roll outside allowable range
-        QC3:    snow-depth outside allowable range
+    SnowRadar data integrity check which can be applied before picker processing
 
     Inputs:
-        sr:             A SnowRadar object instance
-        snow_depth:     Derived snow depths from sr
-    
+        sr:    A SnowRadar object instance
     Outputs:
-        QC'ed snow_depth dataframe
-
-    Based on work by Marissa Dattler (https://www.github.com/mdattler)
-    and original MatLab code by Thomas Newman
+        error_flags:    numpy array containing error flagging indexed as follows
+            [0]:  Bad radar amplitude data (0 or NaN value)
+            [1]:  Aircraft pitch greater than tollerance
+            [2]:  Aircraft roll greater than tollerance
+            [3]:  Reserved for future
+            [4]:  Reserved for future
+            [5]:  Reserved for future
     '''
-    QC1 = abs(sr.pitch) < QC_PITCH_MAX
-    QC2 = abs(sr.roll) < QC_ROLL_MAX
-    QC3 = np.logical_and(0 < snow_depth, snow_depth < QC_DEPTH_MAX)
-
-    # convert bool to float (True/False to 1.0/0.0)
-    mask = (QC1 * QC2 * QC3).astype(float)
-    # swap 0.0 for NaN
-    mask[mask == 0] = np.nan
-
-    df = pd.DataFrame({
-        'snow_depth': snow_depth,
-        'snow_depth_QC': snow_depth * mask
-    })
-    df['tag'] = sr.file_name
-    return df
+    filled = np.full(sr.data_radar.shape[1], False)
+    error_flags = np.stack((~(np.sum(sr.data_radar, axis = 0) > 0), # Check for valid data
+                      abs(sr.pitch) > QC_PITCH_MAX, # Check for valid pitch
+                      abs(sr.roll) > QC_ROLL_MAX, # Check for valid roll
+                      filled, # Reserved flags
+                      filled, # Reserved flags
+                      filled), # Reserved flags
+                      axis = 1)
+    return error_flags
 
 def qc_htopo(sr, htopo, snow_depth):
     '''

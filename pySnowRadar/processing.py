@@ -10,6 +10,25 @@ import pandas as pd
 from pySnowRadar import ATM, SnowRadar, pick_layers
 
 
+def calc_snr(sr, noise_bins = 100, interfaces = None):
+    '''
+    Calculate the signal to noise ratio for an entire frame or at specific 
+    interfaces
+
+    Input:
+        noise_bins: The number of leading bins to consider as noise
+        interfaces: Optional numpy array of interface bins to return SNR
+    
+    Output:
+        SNR for an entire frame or at specific bins (interfaces)
+    '''
+    noise = np.median(sr.data_radar[0: noise_bins, :], axis = 0)
+    if interfaces is not None:
+        return 10*np.log10((np.array([sr.data_radar[idx, trace] \
+                           for trace,idx in enumerate(interfaces)]) / noise))
+    else:
+        return 10*np.log10(sr.data_radar/noise)
+
 def geo_filter(input_sr_data):
     '''
     Given a list of SnowRadar datafiles (.mat, .h5, .nc), filter out
@@ -65,6 +84,7 @@ def extract_layers(data_path, snow_density=0.3, picker='Wavelet-TN', dump_result
             'lat': latitude of trace(?)
             'lon': longitude of trace(?)
             'n_snow': the refractive index used during layer picking
+            'b_ref': the reference bin considered as 0 in the origional file
             'b_as': the picked air-snow interface layer
             'b_si': the picked snow-ice interface layer
             'snow_depth': estimated snow depth based on picked layers
@@ -119,9 +139,10 @@ def extract_layers(data_path, snow_density=0.3, picker='Wavelet-TN', dump_result
         'lat': radar_dat.lat,
         'lon': radar_dat.lon,
         'n_snow': refractive_index,
+        'b_ref': upper,
         'b_as': airsnow,
         'b_si': snowice,
-        'snow_depth': snow_depth
+        'snow_depth': snow_depth,
     })
 
     if dump_results:
