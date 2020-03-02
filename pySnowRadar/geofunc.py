@@ -3,6 +3,7 @@ Functions to handle geospatial manipulation for non-product-specific cases
 '''
 from pyproj import Proj, transform
 from functools import partial
+import numpy as np
 
 SRC_PROJ = Proj(init='epsg:4326')
 

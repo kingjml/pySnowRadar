@@ -17,7 +17,7 @@ def error_check(sr, **kwargs):
     SnowRadar data integrity check which can be applied before picker processing
 
     Inputs:
-        sr:    A SnowRadar object instance
+        sr:    A SnowRadar object instance or path to file
     Outputs:
         error_flags:    numpy array containing error flagging indexed as follows
             [0]:  Bad radar amplitude data (0 or NaN value)
@@ -27,6 +27,7 @@ def error_check(sr, **kwargs):
             [4]:  Reserved for future
             [5]:  Reserved for future
     '''
+        
     filled = np.full(sr.data_radar.shape[1], False)
     error_flags = np.stack((~(np.sum(sr.data_radar, axis = 0) > 0), # Check for valid data
                       abs(sr.pitch) > QC_PITCH_MAX, # Check for valid pitch

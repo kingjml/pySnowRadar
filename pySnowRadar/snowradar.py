@@ -232,7 +232,7 @@ class SnowRadar:
         fs = nyquist_sf * oversample_num 
         time_step = 1 / fs 
         max_time = num_nyquist_ts * oversample_num * time_step
-        time_vect = np.arange(-max_time, max_time, time_step)
+        time_vect = np.linspace(-max_time, max_time, ((max_time*2)/time_step).astype(int))  
     
         # Frequency domain object
         half_bandwidth = self.bandwidth / 2
@@ -241,8 +241,7 @@ class SnowRadar:
         n_band_points = np.sum(np.abs(f) <= half_bandwidth)
     
         # Create spectral window 
-        # TODO: Check CRESIS windowing, add options if necessary
-        spectral_win = signal.hann(n_band_points)
+        spectral_win = signal.hann(n_band_points, sym = False)
     
         # Frequency domain processing
         # JK: Need to be careful here, f becomes an array if bandwidth is as well.
