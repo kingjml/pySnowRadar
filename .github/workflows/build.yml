@@ -1,10 +1,10 @@
-name: Test Build
+name: Build
 
 on: [push]
 
 jobs:
   linux:
-    name: build (Ubuntu, ${{ matrix.python-version }})
+    name: Ubuntu, ${{ matrix.python-version }}
     runs-on: 'ubuntu-latest'
     strategy:
       matrix:
@@ -23,7 +23,7 @@ jobs:
         python setup.py sdist bdist_wheel
 
   win:
-    name: pytest (Windows, ${{ matrix.python-version }})
+    name: Windows, ${{ matrix.python-version }}
     runs-on: 'windows-latest'
     strategy:
       matrix:
@@ -42,7 +42,7 @@ jobs:
         python setup.py sdist bdist_wheel
 
   mac:
-    name: pytest (Mac, ${{ matrix.python-version }})
+    name: Mac, ${{ matrix.python-version }}
     runs-on: 'macos-latest'
     strategy:
       matrix:
