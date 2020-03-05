@@ -1,6 +1,8 @@
 # pySnowRadar
 
-A Python3 package to process data from CRESIS SnowRadar systems. 
+![Build](https://github.com/kingjml/pySnowRadar/workflows/Build/badge.svg) ![Tests](https://github.com/kingjml/pySnowRadar/workflows/Tests/badge.svg)
+
+A Python3 package to process data from CRESIS SnowRadar systems.
 
 ## From-Source Installation (PyPI and conda-forge packages coming soon)
 
