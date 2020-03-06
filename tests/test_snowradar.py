@@ -1,4 +1,5 @@
 import pytest
+from getpass import getuser
 from pathlib import Path
 from pySnowRadar import SnowRadar
 
@@ -8,6 +9,9 @@ OIB_TEST_FILE = TEST_DATA_ROOT / 'sr' / 'Data_20160419_04_010.mat'
 AWI_TEST_FILE = TEST_DATA_ROOT / 'awi' / 'Data_20170410_01_006.mat'
 NSIDC_TEST_FILE = TEST_DATA_ROOT / 'nsidc' / 'IRSNO1B_20160419_04_006_deconv.nc'
 TEST_NOT_A_FILE = Path('./fake_sr.mat')
+
+# Skip AWI tests if using GitHub action runner
+skip_awi = True if getuser() == 'runner' else False
 
 # fixtures are basically objects only instantiated when tests request them specifically
 @pytest.fixture
@@ -52,6 +56,7 @@ def test_invalid_load_case():
     with pytest.raises(ValueError):
         wrong_l_case = SnowRadar(str(OIB_TEST_FILE), l_case='not_a_real_l_CASE')
 
+@pytest.mark.skipif(skip_awi, reason='AWI data not on GitHub')
 def test_awi_str_repr(awi_full, awi_meta):
     expected = f'AWI_MAT Datafile: {Path(AWI_TEST_FILE).name}'
     assert str(awi_full) == expected
@@ -67,6 +72,7 @@ def test_nsidc_str_repr(nsidc_full, nsidc_meta):
     assert str(nsidc_full) == expected
     assert str(nsidc_meta) == expected
 
+@pytest.mark.skipif(skip_awi, reason='AWI data not on GitHub')
 def test_awi_as_dict(awi_full, awi_meta):
     '''expected data based on Data_20170410_01_006.mat'''
     expected_full = {
@@ -139,15 +145,16 @@ def test_nsidc_as_dict(nsidc_full, nsidc_meta):
     assert nsidc_meta.as_dict() == expected_meta
 
 def test_calcpulsewidth_result(awi_full, awi_meta, oib_full, oib_meta, nsidc_full, nsidc_meta):
-    awi_full.calcpulsewidth()
-    awi_meta.calcpulsewidth()
-    # expected AWI values based on Data_20170410_01_006.mat
-    expected_awi_null_to_null_pulse_width = 0.075697595645
-    expected_awi_equivalent_pulse_width = 0.028389437310606058
-    assert awi_full.n2n == expected_awi_null_to_null_pulse_width
-    assert awi_full.epw == expected_awi_equivalent_pulse_width
-    assert awi_meta.n2n == expected_awi_null_to_null_pulse_width
-    assert awi_meta.epw == expected_awi_equivalent_pulse_width
+    if not skip_awi:
+        awi_full.calcpulsewidth()
+        awi_meta.calcpulsewidth()
+        # expected AWI values based on Data_20170410_01_006.mat
+        expected_awi_null_to_null_pulse_width = 0.075697595645
+        expected_awi_equivalent_pulse_width = 0.028389437310606058
+        assert awi_full.n2n == expected_awi_null_to_null_pulse_width
+        assert awi_full.epw == expected_awi_equivalent_pulse_width
+        assert awi_meta.n2n == expected_awi_null_to_null_pulse_width
+        assert awi_meta.epw == expected_awi_equivalent_pulse_width
     oib_full.calcpulsewidth()
     oib_meta.calcpulsewidth()
     # expected OIB values based on Data_20160419_04_010.mat
