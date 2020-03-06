@@ -144,17 +144,7 @@ def test_nsidc_as_dict(nsidc_full, nsidc_meta):
     assert nsidc_full.as_dict() == expected_full
     assert nsidc_meta.as_dict() == expected_meta
 
-def test_calcpulsewidth_result(awi_full, awi_meta, oib_full, oib_meta, nsidc_full, nsidc_meta):
-    if not skip_awi:
-        awi_full.calcpulsewidth()
-        awi_meta.calcpulsewidth()
-        # expected AWI values based on Data_20170410_01_006.mat
-        expected_awi_null_to_null_pulse_width = 0.075697595645
-        expected_awi_equivalent_pulse_width = 0.028389437310606058
-        assert awi_full.n2n == expected_awi_null_to_null_pulse_width
-        assert awi_full.epw == expected_awi_equivalent_pulse_width
-        assert awi_meta.n2n == expected_awi_null_to_null_pulse_width
-        assert awi_meta.epw == expected_awi_equivalent_pulse_width
+def test_calcpulsewidth_oib(oib_full, oib_meta):
     oib_full.calcpulsewidth()
     oib_meta.calcpulsewidth()
     # expected OIB values based on Data_20160419_04_010.mat
@@ -164,12 +154,26 @@ def test_calcpulsewidth_result(awi_full, awi_meta, oib_full, oib_meta, nsidc_ful
     assert oib_full.epw == expected_oib_equivalent_pulse_width
     assert oib_meta.n2n == expected_oib_null_to_null_pulse_width
     assert oib_meta.epw == expected_oib_equivalent_pulse_width
-    # expected NSIDC values based on IRSNO1B_20160419_04_006_deconv.nc
+
+def test_calcpulsewidth_nsidc(nsidc_full, nsidc_meta):
     nsidc_full.calcpulsewidth()
     nsidc_meta.calcpulsewidth()
+    # expected NSIDC values based on IRSNO1B_20160419_04_006_deconv.nc
     expected_nsidc_null_to_null_pulse_width = 0.20186025505333335
     expected_nsidc_equivalent_pulse_width = 0.07570516616161617
     assert nsidc_full.n2n == expected_nsidc_null_to_null_pulse_width
     assert nsidc_full.epw == expected_nsidc_equivalent_pulse_width
     assert nsidc_full.n2n == expected_nsidc_null_to_null_pulse_width
     assert nsidc_meta.epw == expected_nsidc_equivalent_pulse_width
+
+@pytest.mark.skipif(skip_awi, reason='AWI data not on GitHub')
+def test_calcpulsewidth_awi(awi_full, awi_meta):
+    awi_full.calcpulsewidth()
+    awi_meta.calcpulsewidth()
+    # expected AWI values based on Data_20170410_01_006.mat
+    expected_awi_null_to_null_pulse_width = 0.075697595645
+    expected_awi_equivalent_pulse_width = 0.028389437310606058
+    assert awi_full.n2n == expected_awi_null_to_null_pulse_width
+    assert awi_full.epw == expected_awi_equivalent_pulse_width
+    assert awi_meta.n2n == expected_awi_null_to_null_pulse_width
+    assert awi_meta.epw == expected_awi_equivalent_pulse_width
