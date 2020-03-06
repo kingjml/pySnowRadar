@@ -1,4 +1,4 @@
-from pySnowRadar.algorithms import GSFC_NK, NSIDC, Wavelet_TN
+from pySnowRadar.algorithms import GSFC_NK, NSIDC, Wavelet_TN, Wavelet_JK
 
 def pick_layers(data, params, picker_func='Wavelet-TN'):
     '''
@@ -32,6 +32,18 @@ def pick_layers(data, params, picker_func='Wavelet-TN'):
             )
         except KeyError:
             raise Exception('Missing or invalid parameters supplied for Wavelet-TN picker')
+    elif choice == 'wavelet-jk':
+        try:            
+            airsnow_layer, snowice_layer = Wavelet_JK(
+                data, 
+                params['n2n'],
+                params['dfr'],
+                params['n_snow'],
+                params.get('ref_snow_layer', 1), # if no ref_snow_layer given, use default of 1
+                params.get('cwt_precision', 10) # if no cwt_precision given, use default of 10
+            )
+        except KeyError:
+            raise Exception('Missing or invalid parameters supplied for Wavelet-JK picker')
     elif choice == 'nsidc':
         try:
             airsnow_layer, snowice_layer = NSIDC(
