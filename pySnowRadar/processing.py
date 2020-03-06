@@ -6,9 +6,7 @@ from pathlib import Path
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-#from pySnowRadar.picklayers import picklayers #obsolete picklayers function
-from pySnowRadar import ATM, SnowRadar, pick_layers
-
+from pySnowRadar import ATM, SnowRadar, algorithms
 
 def calc_snr(sr, noise_bins = 100, interfaces = None):
     '''
@@ -63,34 +61,32 @@ def geo_filter(input_sr_data):
     return sr_gdf.file.tolist()
 
 
-def extract_layers(data_path, snow_density=0.3, picker='Wavelet-TN', dump_results=False):
+def extract_layers(data_path, picker=algorithms.Wavelet_TN, params=None, dump_results=False):
     '''
     For a given SnowRadar datafile, estimate the air-snow and snow-ice interfaces
     using the supplied picker and snow density
 
-    NB: This is currently only working for the Wavelet-TN picker method. There will probably
-    need to be restructuring for any other picker algorithm (i.e. one that requires more than
-    just n2n, dfr, n_snow, and snow density)
-
     Arguments:
         data_path: file path to input SnowRadar data file
         snow_density: a single float value to use when picking interface layers
-        picker: which picker algorithm to apply (Wavelet-TN, NSIDC, or GSFC-NK)
+        picker: which picker algorithm to apply (default is algorithms.Wavelet_TN)
         dump_results: whether or not to save the dataframe to a local csv file under ./dump/
 
     Output:
         A pandas dataframe with the following columns:
             'src': the name of the source SnowRadar data file
-            'lat': latitude of trace(?)
-            'lon': longitude of trace(?)
+            'picker': the name of the picker algo
+            'lat': latitude of trace
+            'lon': longitude of trace
             'n_snow': the refractive index used during layer picking
             'b_ref': the reference bin considered as 0 in the origional file
             'b_as': the picked air-snow interface layer
             'b_si': the picked snow-ice interface layer
             'snow_depth': estimated snow depth based on picked layers
+            'params': a dict of all input and generated params
     '''
-    # skip reprocessing if local csv dump exists
-    if dump_results:
+    
+    if dump_results: # skip reprocessing if local csv dump exists
         outpath = Path('./dump')
         outname = Path(data_path).stem + '.csv'
         outfile = outpath / outname
@@ -98,61 +94,76 @@ def extract_layers(data_path, snow_density=0.3, picker='Wavelet-TN', dump_result
             print('File exists for %s. Skipping processing....' % Path(data_path).name)
             result = pd.read_csv(str(outfile), index_col=0)
             return result
-
-    if not(0.1 <= snow_density <= 0.4):
+        
+    if not(picker in algorithms.available_pickers()):
         raise ValueError(
-            'Invalid snow density passed: %.3f (Must be between 0.1 and 0.4)' % snow_density
+            'Invalid picker name:' % picker.__name__
         )
-    # Convert density to refractive index
-    r_idx = np.sqrt((1 + 0.51 * snow_density) ** 3)
+        
+    if 'snow_density' not in params:
+        raise ValueError(
+            'Snow density or refractive index input required for all pickers'
+        )
+    elif (not(0.1 <= params['snow_density'] <= 0.4)):
+          raise ValueError(
+            'Invalid snow density passed: %.3f (Must be between 0.1 and 0.4)' % snow_density)
+    
+    # Load radar data 
     radar_dat = SnowRadar(data_path, 'full')
     radar_dat.surf_bin, radar_dat.surface = radar_dat.get_surface()
     radar_dat.calcpulsewidth()
+    
+    # Subset radar traces to reduce computational load
     lower, upper = radar_dat.get_bounds(m_above=5)
-    radar_subset = radar_dat.data_radar[upper:lower, :]
+    radar_sub = radar_dat.data_radar[upper:lower, :]
+    
+    params['n_snow'] = np.sqrt((1 + 0.51 * params['snow_density']) ** 3)
+    params['null_2_space']  = radar_dat.n2n
+    params['delta_fast_time_range'] = radar_dat.dfr
+    
+    # Get the required params for the selected picker
+    #req_inputs = picker.__code__.co_varnames[1:picker.__code__.co_argcount]
+    #req_dict = { i : None for i in req_inputs }
+    #input_params = params#{k: params[k] for k in req_inputs if k in params}
+    #print(params)
+    
     try:
-        # this may be replaceable with a ThreadPoolExecutor... 
         airsnow, snowice = np.apply_along_axis(
-            pick_layers,
+            picker, 
             axis=0, 
-            arr=radar_subset,
-            params={
-                'n2n':radar_dat.n2n,
-                'dfr': radar_dat.dfr,
-                'n_snow': r_idx
-            },
-            picker_func=picker
+            arr=radar_sub, 
+            **params
         )
     except:
-        # Set interfaces to NaN if anything goes wrong
-        print('pick_layers blew up for file: %s' % radar_dat.file_name)
-        airsnow = np.array([np.nan] * radar_dat.lat.shape[0])
-        snowice = np.array([np.nan] * radar_dat.lat.shape[0])
-
+         # Set interfaces to NaN if anything goes wrong
+         print('pick_layers blew up for file: %s' % radar_dat.file_name)
+         airsnow = np.array([np.nan] * radar_dat.lat.shape[0])
+         snowice = np.array([np.nan] * radar_dat.lat.shape[0])
+        
     # Some extra columns
-    snow_depth = (snowice - airsnow) * radar_dat.dfr / r_idx
+    snow_depth = (snowice - airsnow) * radar_dat.dfr / params['n_snow']
     data_src = np.array([radar_dat.file_name] * radar_dat.lat.shape[0])
-    refractive_index = np.array([r_idx] * radar_dat.lat.shape[0])
+    #refractive_index = np.array([r_idx] * radar_dat.lat.shape[0])
 
     result = pd.DataFrame({
         'src': data_src,
+        'picker': picker.__name__,
         'lat': radar_dat.lat,
         'lon': radar_dat.lon,
-        'n_snow': refractive_index,
+        'n_snow': params['n_snow'],
         'b_ref': upper,
         'b_as': airsnow,
         'b_si': snowice,
         'snow_depth': snow_depth,
     })
-
+    
     if dump_results:
         outpath.mkdir(parents=True, exist_ok=True)
         result.to_csv(str(outfile), na_rep='nan')
     
     return result
 
-
-def batch_process(input_sr_data, snow_density=0.3, picker='Wavelet-TN', workers=4, dump_results=True):
+def batch_process(input_sr_data, picker, params, workers=4, dump_results=False):
     '''
     For a given list of SnowRadar data file paths:
         1) Pick air-snow and snow-ice interface layers for the 
@@ -162,11 +173,8 @@ def batch_process(input_sr_data, snow_density=0.3, picker='Wavelet-TN', workers=
            of the data files
 
     Arguments:
-        input_sr_data: list of supported SnowRadar data files
-        snow_density: 
-            a) a single float value to apply to all data files
-            b) a list of file-specific density values matching the length of input_sr_data
         picker: which picker algorithm to apply (Wavelet-TN, NSIDC, or GSFC-NK)
+        params: dictonary of picker paramters or list of dicts
         workers: number of worker processes to use
         dump_results: dumps each dataframe to a local csv
 
@@ -181,58 +189,39 @@ def batch_process(input_sr_data, snow_density=0.3, picker='Wavelet-TN', workers=
             'snow_depth': estimated snow depth based on picked layers
 
     '''
-    # first check to ensure that you're not going to blow up your hardware
+    if 'snow_density' not in params:
+            raise ValueError(
+                'Snow density or refractive index input required for all pickers')
+            
     current_cores = cpu_count()
     if workers > current_cores:
         raise SystemError('workers argument (passed: %d) cannot ' % workers + 
                           'exceed current CPU count (%d)' % current_cores)
+
+
     length = len(input_sr_data)
     dump_triggers = [dump_results] * length     
-    picker_args = [picker] * length                     
-    # Single value passed for snow_density
-    if isinstance(snow_density, float):
-        if not(0.1 <= snow_density <= 0.4):
-            raise ValueError('Invalid snow density passed: %.3f ' % snow_density + \
-                            '(Must be between 0.1 and 0.4)')
-        else:
-            process_args = zip(
+    
+    if isinstance(params, list):
+        process_args = zip(
                 input_sr_data, 
-                [snow_density] * length,
-                picker_args, 
-                dump_triggers
-            )
-    # Multiple values passed for snow_density
-    elif isinstance(snow_density, list):
-        if len(snow_density) != length:
-            raise ValueError('Passed list of snow densities must match length of ' + \
-                             'passed snowradar files. ' + \
-                             'Files -> %d Densities -> %d' % (len(snow_density), length))
-        elif any([not(0.1 <= sd <= 0.4) for sd in snow_density]):
-            raise ValueError('Invalid list of snow densities passed. ' + \
-                             'All snow density values must be between 0.1 and 0.4')
-        else:
-            process_args = zip(
-                input_sr_data,
-                snow_density,
-                picker_args,
+                [picker] * length,
+                params,
                 dump_triggers
             )
     else:
-        print('Invalid argument for snow density. Proceeding with default value (0.3)')
-        process_args = zip(
-            input_sr_data, 
-            [0.3] * length,
-            picker_args,
-            dump_triggers
-        )
-
-    # Define the threadpool and submit/execute the list of tasks
+         process_args = zip(
+                input_sr_data,
+                [picker] * length,
+                [params] * length,
+                dump_triggers)
+    
     with ProcessPoolExecutor(workers) as pool:
-        futures = [pool.submit(extract_layers, *foo) for foo in process_args]
-        results = [f.result() for f in futures]
+         futures = [pool.submit(extract_layers, *foo) for foo in process_args]
+         results = [f.result() for f in futures]
+    
     # return a concatenated dataframe containing results for all input datasets
-    df = pd.concat(results)
-    return df
+    return pd.concat(results)
 
 def fetch_atm_data(sr, atm_folder):
     '''

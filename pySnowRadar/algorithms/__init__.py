@@ -1,4 +1,5 @@
-from .Wavelet_TN import Wavelet_TN
-from .Wavelet_JK import Wavelet_JK
-from .GSFC_NK import GSFC_NK
-from .NSIDC import NSIDC
+from .Wavelet import Wavelet_TN, Wavelet_JK
+from .GSFC import GSFC_NK, NSIDC
+
+def available_pickers():
+    return [Wavelet_TN, Wavelet_JK]
