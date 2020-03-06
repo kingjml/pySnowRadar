@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -12,6 +13,7 @@ QC_ELEV_MAX = 0.55  # Max allowable elevation for htopo data (m)
 QC_MAX_DIST = 500   # Max allowable distance from nadir (m). For cropping ATM data (?)
 N_RANGE_BINS = 100  # Number of noise range bins to sample
 
+LOGGER = logging.getLogger(__name__)
 
 def qc_fast(sr, snow_depth):
     '''
@@ -70,11 +72,11 @@ def qc_htopo(sr, htopo, snow_depth):
     '''
     # first thing to check is whether there is any local ATM data on the same day as the sr data
     if not ATM_LOCAL_DIR.exists():
-        print(f'***Error: Local ATM directory does not exist: {ATM_LOCAL_DIR.resolve()}')
+        LOGGER.error('Local ATM directory does not exist: %s' % ATM_LOCAL_DIR)
         return
     atm_data = sorted(ATM_LOCAL_DIR.glob(f'*ATM*_{sr.day}_*.h5'))
     if len(atm_data == 0):
-        print(f'***Error: No ATM data found for date: {sr.day}')
+        LOGGER.error('No ATM data found for date: %s' % sr.day)
         return
     QC3 = np.logical_or(abs(sr.pitch) < QC_PITCH_MAX, abs(sr.roll) < QC_ROLL_MAX)
     
