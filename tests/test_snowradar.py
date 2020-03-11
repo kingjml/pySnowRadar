@@ -12,7 +12,8 @@ NSIDC_TEST_FILE = TEST_DATA_ROOT / 'nsidc' / 'IRSNO1B_20160419_04_006_deconv.nc'
 TEST_NOT_A_FILE = Path('./fake_sr.mat')
 
 # Skip AWI tests if using GitHub action runner
-skip_awi = True if getuser() == 'runner' else False
+## Windows runner is "RUNNER~<some number>"
+skip_awi = True if 'RUNNER' in getuser().upper() else False
 
 # fixtures are basically objects only instantiated when tests request them specifically
 @pytest.fixture
