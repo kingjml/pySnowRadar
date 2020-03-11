@@ -28,7 +28,7 @@ jobs:
 
   win:
     name: Windows, ${{ matrix.python-version }}
-    runs-on: 'windows-latest'
+    runs-on: 'windows-2016'
     strategy:
       matrix:
         python-version: [3.5, 3.6, 3.7]
