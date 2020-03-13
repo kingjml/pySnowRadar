@@ -180,7 +180,7 @@ class SnowRadar:
         self.line = line.simplify(tolerance=1e-6)
         
 
-    def get_surface(self, smooth=True):
+    def get_surface(self, smooth=True, window = 5):
         '''
         Simple surface tracker based on maximum
         This should be refined and is largely a place holder 
@@ -188,6 +188,11 @@ class SnowRadar:
         
         '''
         surf_bin = np.nanargmax(self.data_radar, axis=0)
+        if smooth:
+            shape = surf_bin.shape[:-1] + (surf_bin.shape[-1] - window + 1, window)
+            strides = surf_bin.strides + (surf_bin.strides[-1],)
+            surf_bin = np.median(np.lib.stride_tricks.as_strided(surf_bin, shape=shape, strides=strides),1).astype(int)
+
         surf_time = np.interp(surf_bin,np.arange(0,len(self.time_fast)),self.time_fast)
         return surf_bin , surf_time
     
