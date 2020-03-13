@@ -1,6 +1,7 @@
 import os
 import matplotlib.pyplot as plt
 import warnings
+import logging
 import numpy as np
 from datetime import datetime, timedelta
 from scipy import signal
@@ -21,6 +22,8 @@ CRESIS_RAW_FILE_LUT = {
     'snow9': 'OIB_MAT',
     'snow10': 'OIB_MAT'
 }
+
+LOGGER = logging.getLogger(__name__)
 
 class SnowRadar:
     '''
@@ -47,7 +50,7 @@ class SnowRadar:
                 "Load case: %s not understood. " % l_case +\
                 "Must be one of ['meta', 'full']" 
             )
-        print('Loading: %s (%s)' % (self.file_name, l_case))
+        LOGGER.debug('Loading: %s (%s)', self.file_name, l_case)
         self.load_type = l_case
         self.air_snow = None
         self.snow_ice = None
@@ -313,7 +316,7 @@ class SnowRadar:
         '''        
         # Quick check for existance of non-null 'surface' data attribute 
         if self.surface is None:
-            print('Elevation compensation not possible without surface estimate')
+            LOGGER.warning('Elevation compensation not possible without surface estimate')
             return
 
         # Mikeb: placeholders for commonly-repeated operations

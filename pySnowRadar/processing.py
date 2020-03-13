@@ -1,3 +1,4 @@
+import logging
 import os
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import cpu_count
@@ -9,6 +10,7 @@ import pandas as pd
 #from pySnowRadar.picklayers import picklayers #obsolete picklayers function
 from pySnowRadar import ATM, SnowRadar, pick_layers
 
+LOGGER = logging.getLogger(__name__)
 
 def geo_filter(input_sr_data):
     '''
@@ -39,7 +41,7 @@ def geo_filter(input_sr_data):
         gpd.sjoin(sr_gdf, land, how='inner', op='intersects').index
     )
     if len(sr_gdf) < 1:
-        print('No suitable datafiles left after geospatial filtering')
+        LOGGER.warning('No suitable datafiles left after geospatial filtering')
         return []
     return sr_gdf.file.tolist()
 
@@ -75,7 +77,7 @@ def extract_layers(data_path, snow_density=0.3, picker='Wavelet-TN', dump_result
         outname = Path(data_path).stem + '.csv'
         outfile = outpath / outname
         if outfile.exists():
-            print('File exists for %s. Skipping processing....' % Path(data_path).name)
+            LOGGER.warning('File exists for %s. Skipping processing....', Path(data_path).name)
             result = pd.read_csv(str(outfile), index_col=0)
             return result
 
@@ -105,7 +107,7 @@ def extract_layers(data_path, snow_density=0.3, picker='Wavelet-TN', dump_result
         )
     except:
         # Set interfaces to NaN if anything goes wrong
-        print('pick_layers blew up for file: %s' % radar_dat.file_name)
+        LOGGER.error('pick_layers blew up for file: %s' % radar_dat.file_name)
         airsnow = np.array([np.nan] * radar_dat.lat.shape[0])
         snowice = np.array([np.nan] * radar_dat.lat.shape[0])
 
@@ -197,7 +199,7 @@ def batch_process(input_sr_data, snow_density=0.3, picker='Wavelet-TN', workers=
                 dump_triggers
             )
     else:
-        print('Invalid argument for snow density. Proceeding with default value (0.3)')
+        LOGGER.warning('Invalid argument for snow density. Proceeding with default value (0.3)')
         process_args = zip(
             input_sr_data, 
             [0.3] * length,
@@ -238,7 +240,7 @@ def fetch_atm_data(sr, atm_folder):
         f.split('_')[1] == d
     ]
     if len(relevant_atm_data) == 0:
-        print('No ATM data found for %s' % str(sr))
+        LOGGER.warning('No ATM data found for %s' % str(sr))
         return
     
     # check for spatial match (very rough due to simplicity of atm.bbox)
@@ -247,7 +249,7 @@ def fetch_atm_data(sr, atm_folder):
         if atm.bbox.intersects(sr.line)
     ]
     if len(relevant_atm_data) == 0:
-        print('No ATM data found for %s' % str(sr))
+        LOGGER.warning('No ATM data found for %s' % str(sr))
         return
 
     # assuming we still have some ATM data after spatiotemporal filtering, 
