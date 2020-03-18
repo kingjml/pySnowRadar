@@ -187,7 +187,18 @@ class SnowRadar:
         TODO: surf_time is broken unless the time axis is interpolated
         
         '''
-        surf_bin = np.nanargmax(self.data_radar, axis=0)
+        def get_surface(self, smooth=True):
+        # identify if any all-nan traces exist
+        all_nans =  np.where(np.apply_along_axis(np.all, axis=0, arr=np.isnan(self.data_radar)))[0]
+        if len(all_nans) == 0:
+            surf_bin = np.nanargmax(self.data_radar, axis=0)
+        else:
+            # make a copy of the data array so we don't modify it 
+            arr = self.data_radar.copy()
+            # replace nan-traces with 0
+            arr[:, all_nans] = 0
+            surf_bin = np.nanargmax(arr, axis=0)
+
         if smooth:
             shape = surf_bin.shape[:-1] + (surf_bin.shape[-1] - window + 1, window)
             strides = surf_bin.strides + (surf_bin.strides[-1],)

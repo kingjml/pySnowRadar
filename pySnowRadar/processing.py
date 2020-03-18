@@ -8,24 +8,6 @@ import numpy as np
 import pandas as pd
 from pySnowRadar import ATM, SnowRadar, algorithms
 
-def calc_snr(sr, noise_bins = 100, interfaces = None):
-    '''
-    Calculate the signal-to-noise ratio for an entire frame or at 
-    specific interfaces
-
-    Input:
-        noise_bins: The number of leading bins to consider as noise
-        interfaces: Optional numpy array of interface bins to return SNR
-    
-    Output:
-        SNR for an entire frame or at specific bins (interfaces)
-    '''
-    noise = np.median(sr.data_radar[0: noise_bins, :], axis = 0)
-    if interfaces is not None:
-        return 10*np.log10((np.array([sr.data_radar[idx, trace] \
-                           for trace,idx in enumerate(interfaces)]) / noise))
-    else:
-        return 10*np.log10(sr.data_radar/noise)
 
 def geo_filter(input_sr_data):
     '''
@@ -139,8 +121,11 @@ def extract_layers(data_path, picker=algorithms.Wavelet_TN, params=None, dump_re
          airsnow = np.array([np.nan] * radar_dat.lat.shape[0])
          snowice = np.array([np.nan] * radar_dat.lat.shape[0])
         
-    # Calc snow depth from pics and add the 
+    # Calc snow depth and remove back picks (ie negative snow depth)
     snow_depth = (snowice - airsnow) * radar_dat.dfr / params['n_snow']
+    snow_depth[snow_depth < 0] = np.nan
+    
+    # Add SnowRadar source file
     data_src = np.array([radar_dat.file_name] * radar_dat.lat.shape[0])
 
     result = pd.DataFrame({
@@ -149,7 +134,6 @@ def extract_layers(data_path, picker=algorithms.Wavelet_TN, params=None, dump_re
         'lat': radar_dat.lat,
         'lon': radar_dat.lon,
         'n_snow': params['n_snow'],
-        #'b_ref': upper,
         'b_as': upper + airsnow,
         'b_si': upper + snowice,
         'snow_depth': snow_depth,
