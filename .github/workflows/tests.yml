@@ -11,7 +11,7 @@ jobs:
         python-version: [3.6, 3.7]
     steps:
     - uses: actions/checkout@v2
-    - uses: goanpeca/setup-miniconda@v1
+    - uses: conda-incubator/setup-miniconda@v1.7.0
       with:
         miniconda-version: 'latest'
         auto-update-conda: true
@@ -34,7 +34,7 @@ jobs:
         python-version: [3.6, 3.7]
     steps:
     - uses: actions/checkout@v2
-    - uses: goanpeca/setup-miniconda@v1
+    - uses: conda-incubator/setup-miniconda@v1.7.0
       with:
         miniconda-version: 'latest'
         auto-update-conda: true
@@ -57,7 +57,7 @@ jobs:
         python-version: [3.6, 3.7]
     steps:
     - uses: actions/checkout@v2
-    - uses: goanpeca/setup-miniconda@v1
+    - uses: conda-incubator/setup-miniconda@v1.7.0
       with:
         miniconda-version: 'latest'
         auto-update-conda: true
@@ -65,7 +65,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
         environment-file: requirements.yml
         activate-environment: py3-pySnowRadar
-    - shell: sh -l {0}
+    - shell: bash
       run: |
         conda info
         conda list
