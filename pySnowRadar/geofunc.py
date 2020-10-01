@@ -21,8 +21,7 @@ def project_latlon(lon, lat, epsg=3413):
     try:
         dst_proj = Proj(init=f'epsg:{epsg}')
     except RuntimeError:
-        print(f'***Error: Supplied EPSG code \'{epsg}\' unrecognized')
-        return
+        raise ValueError('Supplied EPSG code: %d unrecognized' % epsg)
     trans = partial(transform, SRC_PROJ, dst_proj)
     return trans(lon, lat)
 

@@ -1,4 +1,6 @@
+import logging
 import os
+import sys
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import cpu_count
 from pathlib import Path
@@ -8,6 +10,7 @@ import numpy as np
 import pandas as pd
 from pySnowRadar import ATM, SnowRadar, algorithms
 
+LOGGER = logging.getLogger(__name__)
 
 def geo_filter(input_sr_data):
     '''
@@ -38,7 +41,7 @@ def geo_filter(input_sr_data):
         gpd.sjoin(sr_gdf, land, how='inner', op='intersects').index
     )
     if len(sr_gdf) < 1:
-        print('No suitable datafiles left after geospatial filtering')
+        LOGGER.warning('No suitable datafiles left after geospatial filtering')
         return []
     return sr_gdf.file.tolist()
 
@@ -71,8 +74,8 @@ def extract_layers(data_path, picker=algorithms.Wavelet_TN, params=None, dump_re
         outpath = Path('./dump')
         outname = Path(data_path).stem + '.csv'
         outfile = outpath / outname
-        if outfile.exists(): # skip reprocessing if local csv dump exists
-            print('File exists for %s. Skipping processing....' % Path(data_path).name)
+        if outfile.exists():
+            LOGGER.warning('File exists for %s. Skipping processing....', Path(data_path).name)
             result = pd.read_csv(str(outfile), index_col=0)
             return result
     
@@ -88,8 +91,9 @@ def extract_layers(data_path, picker=algorithms.Wavelet_TN, params=None, dump_re
             'Snow density or refractive index input required for all pickers'
         )
     elif (not(0.1 <= params['snow_density'] <= 0.4)):
-          raise ValueError(
-            'Invalid snow density passed: %.3f (Must be between 0.1 and 0.4)' % params['snow_density'])
+        raise ValueError(
+            'Invalid snow density passed: %.3f (Must be between 0.1 and 0.4)' % params['snow_density']
+        )
     
     # Load radar data 
     radar_dat = SnowRadar(data_path, 'full')
@@ -115,11 +119,14 @@ def extract_layers(data_path, picker=algorithms.Wavelet_TN, params=None, dump_re
             **params
         )
     except:
-         # Set interfaces to NaN if anything goes wrong
-         # TODO: We should catch and print the exception
-         print('pick_layers blew up for file: %s' % radar_dat.file_name)
-         airsnow = np.array([np.nan] * radar_dat.lat.shape[0])
-         snowice = np.array([np.nan] * radar_dat.lat.shape[0])
+        # We catch and log the exception
+        errtype, errval, _ = sys.exc_info()
+        LOGGER.error('%s with picklayers on file %s: %s' % (
+             errtype, radar_dat.file_name, errval
+        ))
+        # Set interfaces to NaN if anything goes wrong
+        airsnow = np.array([np.nan] * radar_dat.lat.shape[0])
+        snowice = np.array([np.nan] * radar_dat.lat.shape[0])
         
     # Calc snow depth and remove back picks (ie negative snow depth)
     snow_depth = (snowice - airsnow) * radar_dat.dfr / params['n_snow']
@@ -199,7 +206,8 @@ def batch_process(input_sr_data, picker, params, workers=4, dump_results=False):
             input_sr_data, 
             picker_args,
             params,
-            dump_triggers)
+            dump_triggers
+        )
     
     with ProcessPoolExecutor(workers) as pool:
         futures = [pool.submit(extract_layers, *foo) for foo in process_args]
@@ -233,7 +241,7 @@ def fetch_atm_data(sr, atm_folder):
         f.split('_')[1] == d
     ]
     if len(relevant_atm_data) == 0:
-        print('No ATM data found for %s' % str(sr))
+        LOGGER.warning('No ATM data found for %s' % str(sr))
         return
     
     # check for spatial match (very rough due to simplicity of atm.bbox)
@@ -242,7 +250,7 @@ def fetch_atm_data(sr, atm_folder):
         if atm.bbox.intersects(sr.line)
     ]
     if len(relevant_atm_data) == 0:
-        print('No ATM data found for %s' % str(sr))
+        LOGGER.warning('No ATM data found for %s' % str(sr))
         return
 
     # assuming we still have some ATM data after spatiotemporal filtering, 

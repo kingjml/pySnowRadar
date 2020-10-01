@@ -1,6 +1,7 @@
 import os
 import matplotlib.pyplot as plt
 import warnings
+import logging
 import numpy as np
 from datetime import datetime, timedelta
 from scipy import signal
@@ -21,6 +22,8 @@ CRESIS_RAW_FILE_LUT = {
     'snow9': 'OIB_MAT',
     'snow10': 'OIB_MAT'
 }
+
+LOGGER = logging.getLogger(__name__)
 
 class SnowRadar:
     '''
@@ -47,7 +50,7 @@ class SnowRadar:
                 "Load case: %s not understood. " % l_case +\
                 "Must be one of ['meta', 'full']" 
             )
-        print('Loading: %s (%s)' % (self.file_name, l_case))
+        LOGGER.debug('Loading: %s (%s)', self.file_name, l_case)
         self.load_type = l_case
         self.air_snow = None
         self.snow_ice = None
@@ -268,7 +271,6 @@ class SnowRadar:
         time_sig = np.fft.fftshift(time_domain_signal)
         power_signal = np.abs(time_sig ** 2)
         power_signal_norm = power_signal / np.max(power_signal)
-        max_val = np.max(power_signal_norm)
         max_idx = np.argmax(power_signal_norm)
     
         # Calc the equivalent pulse width
@@ -322,10 +324,12 @@ class SnowRadar:
             elev_axis: elevation axis based on bin timing and an assumption of permittivity
         '''        
         max_elev = np.max(self.elevation)
-        delta_range = max_elev - self.elevation;
-        delta_time = self.time_fast[1]-self.time_fast[0]
-        detla_bins = np.round(delta_range/(C/2)/delta_time).astype(int)
-        zero_pad_len = np.max(np.abs(detla_bins)).astype(int)
+        delta_range = max_elev - self.elevation
+        delta_time = self.time_fast[1] - self.time_fast[0]
+        delta_bins = np.round(
+            delta_range / (C / 2) / delta_time
+        ).astype(int)
+        zero_pad_len = np.max(np.abs(delta_bins)).astype(int)
        
         radar_comp = np.concatenate((
                 self.data_radar, 
@@ -335,7 +339,7 @@ class SnowRadar:
 
         time_comp = self.time_fast[0] + delta_time * np.arange(0,self.data_radar.shape[0])
 
-        for idx, dbin in enumerate(detla_bins):
+        for idx, dbin in enumerate(delta_bins):
             radar_comp[:, idx] = np.roll(radar_comp[:, idx], dbin)
             #self.elevation[idx] = self.elevation[idx] + dbin*delta_time*C/2
             #self.surface[idx] = self.surface[idx] + dbin * delta_time
