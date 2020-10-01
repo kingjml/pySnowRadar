@@ -65,7 +65,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
         environment-file: requirements.yml
         activate-environment: py3-pySnowRadar
-    - shell: bash
+    - shell: sh -l {0}
       run: |
         conda info
         conda list
