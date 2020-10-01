@@ -35,8 +35,6 @@ def Peakiness(data,
         data = data[~np.isnan(data)]
         #normalize data
         data_norm = data / np.nanmax(data)
-        #log-scale data
-        data_dB = 10 * np.log10(data)
         #log-scale normalized data
         data_norm_dB = 10 * np.log10(data_norm)
     

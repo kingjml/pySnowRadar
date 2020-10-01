@@ -90,7 +90,6 @@ def cwt(data, wavelet, scales, precision):
     coef_a = [-np.sqrt(scales[i]) 
                * np.diff(np.convolve(data, int_psi[x.astype(np.int)][::-1]))
               for (i, x) in enumerate(j_m)]
-    d_a = [(coef.size - data.size) / 2 for coef in coef_a]
     out_coefs = np.asarray([coef[int(np.floor((coef.size - data.size) / 2))
                             :int(-np.ceil((coef.size - data.size) /2))] for coef in coef_a])
     return out_coefs

@@ -89,7 +89,7 @@ def extract_layers(data_path, picker=algorithms.Wavelet_TN, params=None, dump_re
         )
     elif (not(0.1 <= params['snow_density'] <= 0.4)):
           raise ValueError(
-            'Invalid snow density passed: %.3f (Must be between 0.1 and 0.4)' % snow_density)
+            'Invalid snow density passed: %.3f (Must be between 0.1 and 0.4)' % params['snow_density'])
     
     # Load radar data 
     radar_dat = SnowRadar(data_path, 'full')
@@ -123,7 +123,11 @@ def extract_layers(data_path, picker=algorithms.Wavelet_TN, params=None, dump_re
         
     # Calc snow depth and remove back picks (ie negative snow depth)
     snow_depth = (snowice - airsnow) * radar_dat.dfr / params['n_snow']
-    snow_depth[snow_depth < 0] = np.nan
+    # trick to get around the invalid-value runtime warnings
+    # props to Jaime: https://stackoverflow.com/a/25346972
+    mask = ~np.isnan(snow_depth)
+    mask[mask] &= snow_depth[mask] < 0
+    snow_depth[mask] = np.nan
     
     # Add SnowRadar source file
     data_src = np.array([radar_dat.file_name] * radar_dat.lat.shape[0])
@@ -185,7 +189,7 @@ def batch_process(input_sr_data, picker, params, workers=4, dump_results=False):
     # If the input parameters the same for every file
         process_args = zip(
             input_sr_data, 
-            [picker] * length,
+            picker_args,
             [params] * length,
             dump_triggers
         )
@@ -193,7 +197,7 @@ def batch_process(input_sr_data, picker, params, workers=4, dump_results=False):
     elif isinstance(params, list):
         process_args = zip(
             input_sr_data, 
-            [picker] * length,
+            picker_args,
             params,
             dump_triggers)
     
