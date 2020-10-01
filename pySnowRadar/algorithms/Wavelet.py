@@ -7,15 +7,15 @@ def Wavelet_TN(data, null_2_space, delta_fast_time_range, n_snow, ref_snow_layer
         Air-Snow interface
         Snow-Ice Interface
 
-    Currently uses the Continuous Wavelet Transform (cwt) method originally developed
+    Uses the Continuous Wavelet Transform (cwt) method originally developed
     by Thomas Newman
 
     Arguments:
         data: 1D radar data array
-        null_2_space:(?)
-        delta_fast_time_range:(?)
-        n_snow: the refractive index of snow(?)
-        ref_snow_layer:(?) (default 1)
+        null_2_space: trough to trough distance
+        delta_fast_time_range: radar bin range in m
+        n_snow: the refractive index of snow
+        ref_snow_layer: reference snow depth in m (default 1)
         cwt_precision: precision arg for cwt (default 10)
 
     Outputs:
@@ -37,8 +37,6 @@ def Wavelet_TN(data, null_2_space, delta_fast_time_range, n_snow, ref_snow_layer
     
     # Negating edge effects here, we use half the max scale on either end
     # Some discussion is needed on this approach because it can sometimes lead to weird picks
-    # TODO: Explore other filtering methods (Signal windowing?)
-    # TODO: Refactor to support np.nan instead
     lin_coefs[:, 0:np.ceil(max_scale_lin/2).astype(int)] = 0
     lin_coefs[:, -np.ceil(max_scale_lin/2).astype(int):] = 0
 
