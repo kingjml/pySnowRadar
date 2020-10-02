@@ -158,8 +158,8 @@ def test_calcpulsewidth_oib(oib_full, oib_meta):
     oib_full.calcpulsewidth()
     oib_meta.calcpulsewidth()
     # expected OIB values based on Data_20160419_04_010.mat
-    expected_oib_null_to_null_pulse_width = 0.20186025505333335
-    expected_oib_equivalent_pulse_width = 0.07570516616161617
+    expected_oib_null_to_null_pulse_width = 0.19986163866666665
+    expected_oib_equivalent_pulse_width = 0.07494811450000002
     assert oib_full.n2n == expected_oib_null_to_null_pulse_width
     assert oib_full.epw == expected_oib_equivalent_pulse_width
     assert oib_meta.n2n == expected_oib_null_to_null_pulse_width
@@ -169,8 +169,8 @@ def test_calcpulsewidth_nsidc(nsidc_full, nsidc_meta):
     nsidc_full.calcpulsewidth()
     nsidc_meta.calcpulsewidth()
     # expected NSIDC values based on IRSNO1B_20160419_04_006_deconv.nc
-    expected_nsidc_null_to_null_pulse_width = 0.20186025505333335
-    expected_nsidc_equivalent_pulse_width = 0.07570516616161617
+    expected_nsidc_null_to_null_pulse_width = 0.19986163866666665
+    expected_nsidc_equivalent_pulse_width = 0.07494811450000002
     assert nsidc_full.n2n == expected_nsidc_null_to_null_pulse_width
     assert nsidc_full.epw == expected_nsidc_equivalent_pulse_width
     assert nsidc_full.n2n == expected_nsidc_null_to_null_pulse_width

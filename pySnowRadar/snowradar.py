@@ -183,14 +183,29 @@ class SnowRadar:
         self.line = line.simplify(tolerance=1e-6)
         
 
-    def get_surface(self, smooth=True):
+    def get_surface(self, smooth=True, window = 5):
         '''
         Simple surface tracker based on maximum
         This should be refined and is largely a place holder 
         TODO: surf_time is broken unless the time axis is interpolated
         
         '''
-        surf_bin = np.nanargmax(self.data_radar, axis=0)
+        # identify if any all-nan traces exist
+        all_nans =  np.where(np.apply_along_axis(np.all, axis=0, arr=np.isnan(self.data_radar)))[0]
+        if len(all_nans) == 0:
+            surf_bin = np.nanargmax(self.data_radar, axis=0)
+        else:
+            # make a copy of the data array so we don't modify it 
+            arr = self.data_radar.copy()
+            # replace nan-traces with 0
+            arr[:, all_nans] = 0
+            surf_bin = np.nanargmax(arr, axis=0)
+
+        if smooth:
+            shape = surf_bin.shape[:-1] + (surf_bin.shape[-1] - window + 1, window)
+            strides = surf_bin.strides + (surf_bin.strides[-1],)
+            surf_bin = np.median(np.lib.stride_tricks.as_strided(surf_bin, shape=shape, strides=strides),1).astype(int)
+
         surf_time = np.interp(surf_bin,np.arange(0,len(self.time_fast)),self.time_fast)
         return surf_bin , surf_time
     
@@ -235,7 +250,7 @@ class SnowRadar:
         fs = nyquist_sf * oversample_num 
         time_step = 1 / fs 
         max_time = num_nyquist_ts * oversample_num * time_step
-        time_vect = np.arange(-max_time, max_time, time_step)
+        time_vect = np.linspace(-max_time, max_time, ((max_time*2)/time_step).astype(int))  
     
         # Frequency domain object
         half_bandwidth = self.bandwidth / 2
@@ -244,8 +259,7 @@ class SnowRadar:
         n_band_points = np.sum(np.abs(f) <= half_bandwidth)
     
         # Create spectral window 
-        # TODO: Check CRESIS windowing, add options if necessary
-        spectral_win = signal.hann(n_band_points)
+        spectral_win = signal.hann(n_band_points, sym = False)
     
         # Frequency domain processing
         # JK: Need to be careful here, f becomes an array if bandwidth is as well.
@@ -257,7 +271,6 @@ class SnowRadar:
         time_sig = np.fft.fftshift(time_domain_signal)
         power_signal = np.abs(time_sig ** 2)
         power_signal_norm = power_signal / np.max(power_signal)
-        max_val = np.max(power_signal_norm)
         max_idx = np.argmax(power_signal_norm)
     
         # Calc the equivalent pulse width
@@ -301,97 +314,38 @@ class SnowRadar:
         time_decomp = t0 + self.dft*np.arange(0, Nt-1)
         return data_radar_decomp, time_decomp
     
-    def elevation_compensation(self, perm_ice=3.15):
+    def elevation_compensation(self):
         '''
-        Ported by Josh King from CRESIS elevation_compensation.m by John Paden
+        Adapted by Josh King from CRESIS elevation_compensation.m by John Paden
         https://github.com/kingjml/pyWavelet/blob/master/pyWavelet/legacy/elevation_compensation.m
-
-
-        Arguments:
-            perm_ice: The permittivity of ice (default 3.15)
 
         Outputs:
             radar_comp: 2D numpy array of elevation-compensated radar data 
             elev_axis: elevation axis based on bin timing and an assumption of permittivity
         '''        
-        # Quick check for existance of non-null 'surface' data attribute 
-        if self.surface is None:
-            LOGGER.warning('Elevation compensation not possible without surface estimate')
-            return
-
-        # Mikeb: placeholders for commonly-repeated operations
-        half_speed_of_light = C * 0.5 
-        half_c_in_ice = half_speed_of_light / np.sqrt(perm_ice) 
-        time_fast_size = len(self.time_fast)        # TODO: better name for this?
-
-        max_elev = self.elevation.max()
-        min_elev = np.min(
-            self.elevation - self.surface * half_speed_of_light -
-            (self.time_fast[-1] - self.surface) * half_c_in_ice
-        )
-
-        # Create an elevation axis based on the bin timing and an assumption of permittivity
-        delta_range = self.dft * half_c_in_ice   
-        dt_air = delta_range / half_speed_of_light  # TODO: better name for this?
-        dt_ice = self.dft                           # TODO: Is this correct?
-        elev_axis = np.arange(max_elev, min_elev, -delta_range)
-
-        # Zero-pad the radar data to provide space for interpolation
-        zero_pad_len = len(elev_axis) - time_fast_size - 1
-        # This will be our new compensated radar data array
+        max_elev = np.max(self.elevation)
+        delta_range = max_elev - self.elevation
+        delta_time = self.time_fast[1] - self.time_fast[0]
+        delta_bins = np.round(
+            delta_range / (C / 2) / delta_time
+        ).astype(int)
+        zero_pad_len = np.max(np.abs(delta_bins)).astype(int)
+       
         radar_comp = np.concatenate((
-            self.data_radar, 
-            #np.full((zero_pad_len, self.data_radar.shape[1]), np.nan)),
-            np.zeros((zero_pad_len, self.data_radar.shape[1]))),
-            axis=0
-        )
-
-        # Create the corrections to be applied
-        #d_range = max_elev - self.elevation
-        #d_time = d_range / half_speed_of_light
-        #d_bins = np.round(d_time / dt_ice)
-
-        def create_compensation(row_idx):
-            ''' 
-            This helper function finds the ice interface and scales the time array depending on medium
-            '''
-            e_val = self.elevation[row_idx]
-            s_val = self.surface[row_idx]
-            surf_elev = e_val - s_val * half_speed_of_light
-            time0 = -(max_elev - e_val) / half_speed_of_light
-            last_air_idx = np.max(np.argwhere(elev_axis > surf_elev))
-            new_time = (time0 + dt_air * np.arange(0, last_air_idx - 1))
-            if last_air_idx < elev_axis.shape[0]:
-                first_ice_idx = last_air_idx + 1
-                time0 = s_val + (surf_elev - elev_axis[first_ice_idx]) / half_c_in_ice
-                new_time = np.concatenate((
-                    new_time, 
-                    time0 + dt_ice * (
-                        np.arange(0, len(elev_axis) - len(new_time) - 1)
-                    )), 
-                    axis=0
-                )
-            return new_time
-
-        for idx in range(self.data_radar.shape[1]):
-            comp = create_compensation(idx)
-            data_subset = self.data_radar[:time_fast_size, idx]
-            # ensure that the shapes of self.time_fast and data_subset are the same
-            if self.time_fast.shape != data_subset.shape:
-                raise BaseException(
-                    'Cannot complete elevation compensation: ' +\
-                    '\n\ttime_fast and data_subset not same shape at index %s' % idx
-                )
-            radar_comp[:, idx] = np.interp(
-                comp,
-                self.time_fast,
-                data_subset
+                self.data_radar, 
+                np.zeros((zero_pad_len, self.data_radar.shape[1]))),
+                axis=0
             )
-            
-        # TODO: Make sure no data is nan
-        # TODO: Adjust time axis
-        radar_comp[radar_comp == 0] = np.nan
-        return radar_comp, elev_axis
+
+        time_comp = self.time_fast[0] + delta_time * np.arange(0,self.data_radar.shape[0])
+
+        for idx, dbin in enumerate(delta_bins):
+            radar_comp[:, idx] = np.roll(radar_comp[:, idx], dbin)
+            #self.elevation[idx] = self.elevation[idx] + dbin*delta_time*C/2
+            #self.surface[idx] = self.surface[idx] + dbin * delta_time
+    
+        self.elev_corrected = True
+        return radar_comp, time_comp
 
     def plot_quicklook(self, ylim=None):
         '''

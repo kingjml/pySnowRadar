@@ -1,21 +1,21 @@
 import numpy as np
 import pywt
 
-def Wavelet_TN(data, null_2_space, delta_fast_time_range, n_snow, ref_snow_layer, cwt_precision):
+def Wavelet_TN(data, null_2_space, delta_fast_time_range, n_snow, ref_snow_layer, cwt_precision, **kwargs):
     '''
     Function to detect 2 interface layers from a given SnowRadar signal:
         Air-Snow interface
         Snow-Ice Interface
 
-    Currently uses the Continuous Wavelet Transform (cwt) method originally developed
+    Uses the Continuous Wavelet Transform (cwt) method originally developed
     by Thomas Newman
 
     Arguments:
         data: 1D radar data array
-        null_2_space:(?)
-        delta_fast_time_range:(?)
-        n_snow: the refractive index of snow(?)
-        ref_snow_layer:(?) (default 1)
+        null_2_space: trough to trough distance
+        delta_fast_time_range: radar bin range in m
+        n_snow: the refractive index of snow
+        ref_snow_layer: reference snow depth in m (default 1)
         cwt_precision: precision arg for cwt (default 10)
 
     Outputs:
@@ -37,8 +37,6 @@ def Wavelet_TN(data, null_2_space, delta_fast_time_range, n_snow, ref_snow_layer
     
     # Negating edge effects here, we use half the max scale on either end
     # Some discussion is needed on this approach because it can sometimes lead to weird picks
-    # TODO: Explore other filtering methods (Signal windowing?)
-    # TODO: Refactor to support np.nan instead
     lin_coefs[:, 0:np.ceil(max_scale_lin/2).astype(int)] = 0
     lin_coefs[:, -np.ceil(max_scale_lin/2).astype(int):] = 0
 
@@ -50,6 +48,22 @@ def Wavelet_TN(data, null_2_space, delta_fast_time_range, n_snow, ref_snow_layer
     
     locs_si = np.argmax(-sum_lin_coefs)
     locs_as = np.argmax(-sum_log_coefs)
+    
+    return locs_as, locs_si
+
+def Wavelet_JK(data, scale_vect, **kwargs):
+    log_gaus1_coefs, _ =  pywt.cwt(10 * np.log10(data),scale_vect,'gaus1')
+    log_gaus1_coefs[:, 0:np.ceil(scale_vect[-1]*2).astype(int)] = np.nan
+    log_gaus1_coefs[:, -np.ceil(scale_vect[-1]*2).astype(int):] = np.nan
+    sum_log_gaus1_coefs = np.sum(log_gaus1_coefs,axis=0) / log_gaus1_coefs.shape[0]
+    locs_as = np.nanargmin(sum_log_gaus1_coefs)
+
+    lin_gaus2_coefs, _ = pywt.cwt(data,scale_vect,'gaus2')
+    lin_gaus2_coefs[:, 0:np.ceil(scale_vect[-1]*2).astype(int)] = np.nan
+    lin_gaus2_coefs[:, -np.ceil(scale_vect[-1]*2).astype(int):] = np.nan
+    sum_lin_gaus2_coefs = np.sum(lin_gaus2_coefs,axis=0) / lin_gaus2_coefs.shape[0]
+    locs_si = np.nanargmax(sum_lin_gaus2_coefs)
+
     return locs_as, locs_si
 
 def cwt(data, wavelet, scales, precision):
@@ -76,7 +90,6 @@ def cwt(data, wavelet, scales, precision):
     coef_a = [-np.sqrt(scales[i]) 
                * np.diff(np.convolve(data, int_psi[x.astype(np.int)][::-1]))
               for (i, x) in enumerate(j_m)]
-    d_a = [(coef.size - data.size) / 2 for coef in coef_a]
     out_coefs = np.asarray([coef[int(np.floor((coef.size - data.size) / 2))
                             :int(-np.ceil((coef.size - data.size) /2))] for coef in coef_a])
     return out_coefs
