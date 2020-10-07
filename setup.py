@@ -23,7 +23,7 @@ setup(
         # Trove classifiers
         # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
         'Development Status :: 5 - Production/Stable',
-        'Topic :: Scientific/Engineering'
+        'Topic :: Scientific/Engineering',
         'Intended Audience :: Science/Research',
         'Intended Audience :: Education',
         'License :: OSI Approved :: MIT License',

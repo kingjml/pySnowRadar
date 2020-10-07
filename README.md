@@ -23,9 +23,9 @@ Clone this repository, create the conda environment and install pySnowRadar:
 
 Check out the Jupyter notebook examples for usage scenarios and code snippets:
 
- - [Batch-processing of multiple NSIDC L1b Deconvoluted SnowRadar products](https://github.com/kingjml/pySnowRadar/notebooks/batch_process_example.ipynb)
- - [Layer retrieval test of AWI SnowRadar product](https://github.com/kingjml/pySnowRadar/notebooks/retrieval_test_awi.ipynb)
- - [Layer retrievel test of OIB SnowRadar product](https://github.com/kingjml/pySnowRadar/notebooks/retrieval_test_oib.ipynb)
+ - [Batch-processing of multiple NSIDC L1b Deconvoluted SnowRadar products](https://github.com/kingjml/pySnowRadar/blob/master/notebooks/retrieval_batch_example.ipynb)
+ - [Layer retrieval test of AWI SnowRadar product](https://github.com/kingjml/pySnowRadar/blob/master/notebooks/retrieval_awi_example.ipynb)
+ - [Layer retrievel test of OIB SnowRadar product](https://github.com/kingjml/pySnowRadar/blob/master/notebooks/retrieval_oib_example.ipynb)
  
 pySnowRadar does not validate interface or snow depth estimates. It is highly recommended that users compare outputs with measurements or references to quantify errors. Users should consider uncertainties including but not limited to surface roughness, salinity, and sidelobes.
 
