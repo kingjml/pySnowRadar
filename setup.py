@@ -1,11 +1,15 @@
+import re
 from setuptools import find_packages, setup
+
+with open('./pySnowRadar/__init__.py') as f:
+    version = re.search(r"__version__ = \s*'([\d.*]+)'", f.read()).group(1)
 
 with open('README.md', 'r') as readme:
     long_description = readme.read()
 
 setup(
     name='pySnowRadar',
-    version='1.0.1',
+    version=version,
     author='Climate Research Division',
     author_email='',
     description='A Python3 package to process data from CRESIS SnowRadar systems',

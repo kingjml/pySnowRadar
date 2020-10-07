@@ -1,5 +1,6 @@
-{% set name = "pySnowRadar" %}
-{% set version = "1.0.1" %}
+{% set data = load_setup_py_data() %}
+{% set name = data.get('name') %}
+{% set version = data.get('version') %}
 
 package:
   name: {{ name|lower }}
