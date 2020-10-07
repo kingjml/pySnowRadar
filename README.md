@@ -1,6 +1,8 @@
 # pySnowRadar
 
-![Build](https://github.com/kingjml/pySnowRadar/workflows/Build/badge.svg) ![Tests](https://github.com/kingjml/pySnowRadar/workflows/Tests/badge.svg)
+![Build](https://github.com/kingjml/pySnowRadar/workflows/Build/badge.svg) ![Tests](https://github.com/kingjml/pySnowRadar/workflows/Tests/badge.svg) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4071801.svg)](https://doi.org/10.5281/zenodo.4071801)
+
+
 
 A Python3 package to process data from CRESIS SnowRadar systems.
 
