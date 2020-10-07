@@ -1,12 +1,22 @@
 # pySnowRadar
 
-![Build](https://github.com/kingjml/pySnowRadar/workflows/Build/badge.svg) ![Tests](https://github.com/kingjml/pySnowRadar/workflows/Tests/badge.svg) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4071801.svg)](https://doi.org/10.5281/zenodo.4071801)
-
+![Build](https://github.com/kingjml/pySnowRadar/workflows/Build/badge.svg)
+![Tests](https://github.com/kingjml/pySnowRadar/workflows/Tests/badge.svg)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4071947.svg)](https://doi.org/10.5281/zenodo.4071947)
+[![PyPI](https://img.shields.io/pypi/v/pySnowRadar)](https://pypi.org/project/pySnowRadar)
 
 
 A Python3 package to process data from CRESIS SnowRadar systems.
 
-## From-Source Installation (PyPI and conda-forge packages coming soon)
+## Install from the Python Package Index
+
+  ```
+  $ pip install pySnowRadar
+  ```
+
+If you receive error messages pertaining to `gdal_config` or any other `gdal`-related issue, ensure that you have `gdal` installed and configured (we suggest installing `gdal` through [conda](https://anaconda.org/main/gdal)!) 
+
+## From-Source Installation
 
 Install and initialize conda:  https://docs.conda.io/en/latest/miniconda.html
 
